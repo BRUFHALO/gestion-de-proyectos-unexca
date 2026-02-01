@@ -1,0 +1,23 @@
+# Paquetes esenciales para la base de datos
+motor>=3.3.0
+pydantic>=2.5.0
+pydantic[email]>=2.5.0
+python-dotenv>=1.0.0
+python-multipart>=1.0.0
+
+# Framework web (opcional por ahora)
+fastapi>=0.109.0
+uvicorn>=0.27.0
+
+# Utilidades HTTP
+httpx>=0.26.0
+
+# Los siguientes paquetes se instalarán después cuando sean necesarios:
+# python-jose[cryptography]  # Para autenticación JWT
+# passlib[bcrypt]            # Para hasheo de contraseñas
+# python-multipart           # Para upload de archivos
+# celery                     # Para tareas asíncronas
+# redis                      # Para cache
+# Pillow                     # Para procesamiento de imágenes
+# PyPDF2                     # Para procesamiento de PDFs
+# python-docx                # Para procesamiento de Word
