@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from config.database import Database, DatabaseConfig
-from api import users, projects, careers, subjects, auth, feedback
+from api import users, projects, careers, subjects, auth, feedback, docx_processor
 
 
 @asynccontextmanager
@@ -53,6 +53,7 @@ app.include_router(projects.router)
 app.include_router(careers.router)
 app.include_router(subjects.router)
 app.include_router(feedback.router)
+app.include_router(docx_processor.router)
 
 
 @app.get("/")

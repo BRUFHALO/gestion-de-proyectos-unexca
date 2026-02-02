@@ -182,7 +182,7 @@ async def upload_project(
     file: UploadFile = File(...)
 ):
     """
-    Subir un nuevo proyecto con archivo PDF
+    Subir un nuevo proyecto con archivo DOCX
     
     Args:
         title: Título del proyecto
@@ -190,11 +190,11 @@ async def upload_project(
         methodology: Metodología utilizada
         keywords: Palabras clave separadas por comas
         student_id: ID del estudiante que sube el proyecto
-        file: Archivo PDF del proyecto
+        file: Archivo DOCX del proyecto
     """
-    # Validar que sea un PDF
-    if not file.filename.endswith('.pdf'):
-        raise HTTPException(status_code=400, detail="Solo se permiten archivos PDF")
+    # Validar que sea un DOCX
+    if not file.filename.endswith('.docx'):
+        raise HTTPException(status_code=400, detail="Solo se permiten archivos DOCX (Word)")
     
     # Validar tamaño (10MB máximo)
     content = await file.read()
@@ -256,7 +256,7 @@ async def upload_project(
                         "filename": file_info["filename"],
                         "file_path": file_info["relative_path"],
                         "file_size": file_info["file_size"],
-                        "file_type": "application/pdf",
+                        "file_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         "uploaded_at": file_info["uploaded_at"],
                         "uploaded_by": student_id
                     }
