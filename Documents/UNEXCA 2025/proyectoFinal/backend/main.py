@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from config.database import Database, DatabaseConfig
-from api import users, projects, careers, subjects, auth, feedback, docx_processor
+from api import users, projects, careers, subjects, auth, feedback, docx_processor, pdf_evaluation
 
 
 @asynccontextmanager
@@ -45,6 +45,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Montar directorio de archivos estáticos (uploads)
+uploads_path = Path(__file__).parent / "uploads"
+uploads_path.mkdir(exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(uploads_path)), name="uploads")
 
 # Incluir routers
 app.include_router(auth.router)
@@ -54,6 +58,7 @@ app.include_router(careers.router)
 app.include_router(subjects.router)
 app.include_router(feedback.router)
 app.include_router(docx_processor.router)
+app.include_router(pdf_evaluation.router)
 
 
 @app.get("/")

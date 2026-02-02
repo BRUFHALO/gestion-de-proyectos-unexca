@@ -182,7 +182,7 @@ async def upload_project(
     file: UploadFile = File(...)
 ):
     """
-    Subir un nuevo proyecto con archivo DOCX
+    Subir un nuevo proyecto con archivo PDF
     
     Args:
         title: Título del proyecto
@@ -190,16 +190,16 @@ async def upload_project(
         methodology: Metodología utilizada
         keywords: Palabras clave separadas por comas
         student_id: ID del estudiante que sube el proyecto
-        file: Archivo DOCX del proyecto
+        file: Archivo PDF del proyecto
     """
-    # Validar que sea un DOCX
-    if not file.filename.endswith('.docx'):
-        raise HTTPException(status_code=400, detail="Solo se permiten archivos DOCX (Word)")
+    # Validar que sea un PDF
+    if not file.filename.endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Solo se permiten archivos PDF")
     
-    # Validar tamaño (10MB máximo)
+    # Validar tamaño (20MB máximo)
     content = await file.read()
-    if len(content) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="El archivo no debe superar 10MB")
+    if len(content) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="El archivo no debe superar 20MB")
     
     # Obtener información del estudiante
     users_collection = Database.get_collection(DatabaseConfig.USERS_COLLECTION)
@@ -256,7 +256,7 @@ async def upload_project(
                         "filename": file_info["filename"],
                         "file_path": file_info["relative_path"],
                         "file_size": file_info["file_size"],
-                        "file_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        "file_type": "application/pdf",
                         "uploaded_at": file_info["uploaded_at"],
                         "uploaded_by": student_id
                     }
