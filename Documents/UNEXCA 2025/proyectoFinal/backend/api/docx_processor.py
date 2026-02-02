@@ -222,13 +222,19 @@ async def parse_docx(project_id: str):
                 r[style-name='Emphasis'] => em
             """
             
+            # Función para convertir imágenes a base64
+            def convert_image_to_base64(image):
+                with image.open() as image_bytes:
+                    encoded = base64.b64encode(image_bytes.read()).decode('ascii')
+                    return {
+                        "src": f"data:{image.content_type};base64,{encoded}"
+                    }
+            
             result = mammoth.convert_to_html(
                 docx_file,
                 style_map=style_map,
                 include_default_style_map=True,
-                convert_image=mammoth.images.img_element(lambda image: {
-                    "src": image.content_type
-                })
+                convert_image=mammoth.images.img_element(convert_image_to_base64)
             )
             html_content = result.value
             
@@ -331,6 +337,13 @@ async def parse_docx(project_id: str):
                     }
                     .text-commented:hover {
                         background-color: #fff4cc;
+                    }
+                    /* Estilos para imágenes */
+                    img {
+                        max-width: 100%;
+                        height: auto;
+                        display: block;
+                        margin: 12pt auto;
                     }
                 </style>
             """
