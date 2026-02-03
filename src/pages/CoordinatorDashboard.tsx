@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Users,
   BookCheck,
@@ -6,13 +6,16 @@ import {
   MessageSquare,
   X,
   Send,
-  Paperclip } from
+  Paperclip,
+  Search,
+  Filter } from
 'lucide-react';
 import { MainLayout } from '../components/layout/MainLayout';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { Modal } from '../components/ui/Modal';
+import { Input } from '../components/ui/Input';
 interface CoordinatorDashboardProps {
   user: any;
   onLogout: () => void;
@@ -43,6 +46,7 @@ export function CoordinatorDashboard({
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [message, setMessage] = useState('');
+  const [teacherSearchQuery, setTeacherSearchQuery] = useState('');
   const [chatMessages, setChatMessages] = useState<
     Record<number, ChatMessage[]>>(
     {
@@ -210,6 +214,19 @@ export function CoordinatorDashboard({
     if (percentage >= 70) return 'text-yellow-600';
     return 'text-green-600';
   };
+
+  // Filtrar docentes por búsqueda
+  const filteredTeachers = useMemo(() => {
+    return teachers.filter((teacher) => {
+      const matchesSearch =
+        teacherSearchQuery === '' ||
+        teacher.name.toLowerCase().includes(teacherSearchQuery.toLowerCase()) ||
+        teacher.career.toLowerCase().includes(teacherSearchQuery.toLowerCase()) ||
+        teacher.email.toLowerCase().includes(teacherSearchQuery.toLowerCase());
+      return matchesSearch;
+    });
+  }, [teacherSearchQuery, teachers]);
+
   return (
     <MainLayout
       role="coordinator"
@@ -232,9 +249,38 @@ export function CoordinatorDashboard({
             </Button>
           </div>
 
+          {/* Filtro de Búsqueda de Docentes */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Filter className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-semibold text-slate-900">Buscar Docente</h3>
+            </div>
+            <Input
+              placeholder="Buscar por nombre, carrera o email..."
+              icon={<Search className="w-5 h-5" />}
+              value={teacherSearchQuery}
+              onChange={(e) => setTeacherSearchQuery(e.target.value)}
+            />
+            {teacherSearchQuery && (
+              <div className="mt-2 flex items-center justify-between">
+                <p className="text-xs text-slate-600">
+                  Mostrando <span className="font-semibold">{filteredTeachers.length}</span> de {teachers.length} docentes
+                </p>
+                <button
+                  onClick={() => setTeacherSearchQuery('')}
+                  className="text-xs text-primary hover:text-primary-dark flex items-center gap-1"
+                >
+                  <X className="w-3 h-3" />
+                  Limpiar
+                </button>
+              </div>
+            )}
+          </div>
+
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="divide-y divide-slate-100">
-              {teachers.map((teacher) =>
+              {filteredTeachers.length > 0 ? (
+                filteredTeachers.map((teacher) =>
               <div
                 key={teacher.id}
                 className="p-4 hover:bg-slate-50 transition-colors">
@@ -309,6 +355,22 @@ export function CoordinatorDashboard({
                       </Badge>
                     </div>
                   </div>
+                </div>
+              )
+              ) : (
+                <div className="p-8 text-center">
+                  <div className="bg-slate-100 p-4 rounded-full inline-block mb-4">
+                    <Search className="w-8 h-8 text-slate-400" />
+                  </div>
+                  <h3 className="text-lg font-medium text-slate-900 mb-2">
+                    No se encontraron docentes
+                  </h3>
+                  <p className="text-slate-500 mb-4">
+                    No hay docentes que coincidan con tu búsqueda.
+                  </p>
+                  <Button variant="outline" onClick={() => setTeacherSearchQuery('')}>
+                    Limpiar búsqueda
+                  </Button>
                 </div>
               )}
             </div>

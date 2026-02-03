@@ -1,0 +1,7 @@
+{
+  "dependencies_to_add": {
+    "react-pdf": "^7.7.0",
+    "pdfjs-dist": "^3.11.174"
+  },
+  "note": "Run: npm install react-pdf pdfjs-dist"
+}

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   FileText,
   CheckSquare,
@@ -6,8 +6,11 @@ import {
   ArrowRight,
   Search,
   Filter,
-  X } from
+  X,
+  Eye } from
 'lucide-react';
+import { projectsAPI } from '../services/api';
+import { useToast } from '../components/ui/Toast';
 import { MainLayout } from '../components/layout/MainLayout';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -18,7 +21,7 @@ import { Select } from '../components/ui/Select';
 interface TeacherDashboardProps {
   user: any;
   onLogout: () => void;
-  onNavigate: (page: string) => void;
+  onNavigate: (page: string, data?: any) => void;
 }
 export function TeacherDashboard({
   user,
@@ -28,111 +31,110 @@ export function TeacherDashboard({
   // Estados para filtros
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSection, setSelectedSection] = useState('all');
-  // Datos de ejemplo
+  const [assignedProjects, setAssignedProjects] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userData, setUserData] = useState<any>(null);
+  const { showToast } = useToast();
+
+  // Cargar datos del usuario desde localStorage
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUserData(JSON.parse(storedUser));
+    }
+  }, []);
+
+  // Cargar proyectos asignados al profesor
+  useEffect(() => {
+    const fetchAssignedProjects = async () => {
+      if (!userData?._id) return;
+      
+      setLoading(true);
+      try {
+        const projects = await projectsAPI.getAll({ assigned_to: userData._id });
+        setAssignedProjects(projects);
+      } catch (error) {
+        console.error('Error al cargar proyectos:', error);
+        showToast('error', 'Error al cargar proyectos asignados');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (userData) {
+      fetchAssignedProjects();
+    }
+  }, [userData, showToast]);
+  // Calcular estadísticas desde proyectos reales
   const stats = [
   {
     label: 'Por Evaluar',
-    value: '8',
+    value: assignedProjects.filter(p => p.metadata?.status === 'submitted' || p.metadata?.status === 'in_review').length.toString(),
     icon: <Clock className="w-6 h-6 text-orange-600" />,
     bg: 'bg-orange-100'
   },
   {
     label: 'Evaluados',
-    value: '12',
+    value: assignedProjects.filter(p => p.metadata?.status === 'approved' || p.metadata?.status === 'rejected').length.toString(),
     icon: <CheckSquare className="w-6 h-6 text-green-600" />,
     bg: 'bg-green-100'
   },
   {
     label: 'Total Asignados',
-    value: '20',
+    value: assignedProjects.length.toString(),
     icon: <FileText className="w-6 h-6 text-blue-600" />,
     bg: 'bg-blue-100'
   }];
 
-  // Lista completa de proyectos
-  const allProjects = [
-  {
-    id: 1,
-    title: 'Machine Learning en Salud',
-    student: 'Juan Pérez',
-    section: 'Sección A',
-    submitted: 'Hace 2 horas',
-    status: 'Pendiente'
-  },
-  {
-    id: 2,
-    title: 'Sistemas de Energía Renovable',
-    student: 'Sara García',
-    section: 'Sección B',
-    submitted: 'Hace 1 día',
-    status: 'En Progreso'
-  },
-  {
-    id: 3,
-    title: 'Seguridad en E-Commerce',
-    student: 'Miguel Rodríguez',
-    section: 'Sección A',
-    submitted: 'Hace 2 días',
-    status: 'Pendiente'
-  },
-  {
-    id: 4,
-    title: 'Aplicación de IoT en Agricultura',
-    student: 'Ana Martínez',
-    section: 'Sección C',
-    submitted: 'Hace 3 días',
-    status: 'Pendiente'
-  },
-  {
-    id: 5,
-    title: 'Blockchain para Cadena de Suministro',
-    student: 'Carlos López',
-    section: 'Sección B',
-    submitted: 'Hace 4 días',
-    status: 'Pendiente'
-  },
-  {
-    id: 6,
-    title: 'Sistema de Gestión Académica',
-    student: 'María Fernández',
-    section: 'Sección A',
-    submitted: 'Hace 5 días',
-    status: 'En Progreso'
-  },
-  {
-    id: 7,
-    title: 'Análisis de Datos con Python',
-    student: 'Roberto Díaz',
-    section: 'Sección C',
-    submitted: 'Hace 1 semana',
-    status: 'Pendiente'
-  },
-  {
-    id: 8,
-    title: 'Desarrollo de API REST',
-    student: 'Laura Sánchez',
-    section: 'Sección B',
-    submitted: 'Hace 1 semana',
-    status: 'Pendiente'
-  }];
-
-  // Obtener secciones únicas para el filtro
-  const sections = useMemo(() => {
-    const uniqueSections = [...new Set(allProjects.map((p) => p.section))];
-    return uniqueSections.sort();
-  }, []);
   // Filtrar proyectos
   const filteredProjects = useMemo(() => {
-    return allProjects.filter((project) => {
+    return assignedProjects.filter((project) => {
       const matchesSearch =
       searchQuery === '' ||
-      project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.student.toLowerCase().includes(searchQuery.toLowerCase());
+      project.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      project.authors?.[0]?.name?.toLowerCase().includes(searchQuery.toLowerCase());
+      
       const matchesSection =
-      selectedSection === 'all' || project.section === selectedSection;
+      selectedSection === 'all' || 
+      (selectedSection === 'submitted' && (project.metadata?.status === 'submitted' || project.metadata?.status === 'in_review')) ||
+      (selectedSection === 'approved' && project.metadata?.status === 'approved') ||
+      (selectedSection === 'rejected' && project.metadata?.status === 'rejected');
+      
       return matchesSearch && matchesSection;
     });
-  }, [searchQuery, selectedSection]);
+  }, [assignedProjects, searchQuery, selectedSection]);
+
+  const handleEvaluateProject = (projectId: string) => {
+    onNavigate('teacher-feedback', { projectId });
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return 'Hoy';
+    if (diffDays === 1) return 'Hace 1 día';
+    if (diffDays < 7) return `Hace ${diffDays} días`;
+    if (diffDays < 30) return `Hace ${Math.floor(diffDays / 7)} semana(s)`;
+    return date.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'submitted':
+        return <Badge variant="warning">Pendiente</Badge>;
+      case 'in_review':
+        return <Badge variant="info">En Revisión</Badge>;
+      case 'approved':
+        return <Badge variant="success">Aprobado</Badge>;
+      case 'rejected':
+        return <Badge variant="danger">Requiere Corrección</Badge>;
+      default:
+        return <Badge variant="default">{status}</Badge>;
+    }
+  };
   // Limpiar filtros
   const clearFilters = () => {
     setSearchQuery('');
@@ -196,18 +198,26 @@ export function TeacherDashboard({
 
           </div>
 
-          {/* Filtro por sección */}
+          {/* Filtro por estado */}
           <div>
             <Select
               options={[
               {
                 value: 'all',
-                label: 'Todas las Secciones'
+                label: 'Todos los Estados'
               },
-              ...sections.map((section) => ({
-                value: section,
-                label: section
-              }))]
+              {
+                value: 'submitted',
+                label: 'Pendientes'
+              },
+              {
+                value: 'approved',
+                label: 'Aprobados'
+              },
+              {
+                value: 'rejected',
+                label: 'Requieren Corrección'
+              }]
               }
               value={selectedSection}
               onChange={(e) => setSelectedSection(e.target.value)} />
@@ -221,7 +231,11 @@ export function TeacherDashboard({
               <span className="font-semibold text-slate-900">
                 {filteredProjects.length}
               </span>{' '}
-              de {allProjects.length} proyectos
+              de{' '}
+              <span className="font-semibold text-slate-900">
+                {assignedProjects.length}
+              </span>{' '}
+              proyectos
             </p>
           </div>
         </div>
@@ -258,52 +272,52 @@ export function TeacherDashboard({
       {/* Cola de Evaluación */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="font-semibold text-slate-900">Cola de Evaluación</h3>
+          <h3 className="font-semibold text-slate-900">Proyectos Asignados</h3>
           <Badge variant="warning">
-            {filteredProjects.filter((p) => p.status === 'Pendiente').length}{' '}
+            {filteredProjects.filter((p) => p.metadata?.status === 'submitted' || p.metadata?.status === 'in_review').length}{' '}
             pendientes
           </Badge>
         </div>
 
-        {filteredProjects.length > 0 ?
+        {loading ? (
+          <div className="p-12 text-center">
+            <Clock className="w-12 h-12 text-slate-400 mx-auto mb-3 animate-spin" />
+            <p className="text-slate-600">Cargando proyectos...</p>
+          </div>
+        ) : filteredProjects.length > 0 ? (
         <div className="divide-y divide-slate-100">
             {filteredProjects.map((item) =>
           <div
-            key={item.id}
+            key={item._id}
             className="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
 
                 <div className="flex items-center gap-4">
-                  <Avatar fallback={item.student} />
+                  <Avatar fallback={item.authors?.[0]?.name || 'E'} />
                   <div>
                     <h4 className="font-medium text-slate-900">{item.title}</h4>
                     <div className="flex items-center gap-2 mt-1 text-sm text-slate-500">
-                      <span>{item.student}</span>
+                      <span>{item.authors?.[0]?.name || 'Estudiante'}</span>
                       <span>•</span>
                       <span className="font-medium text-primary">
-                        {item.section}
+                        {item.academic_info?.methodology || 'Sin metodología'}
                       </span>
                       <span>•</span>
-                      <span>{item.submitted}</span>
+                      <span>{formatDate(item.created_at)}</span>
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <Badge
-                variant={item.status === 'Pendiente' ? 'warning' : 'info'}>
-
-                    {item.status}
-                  </Badge>
+                  {getStatusBadge(item.metadata?.status || 'submitted')}
                   <Button
-                size="sm"
-                onClick={() => onNavigate('evaluation-canvas')}
-                rightIcon={<ArrowRight className="w-4 h-4" />}>
-
+                    size="sm"
+                    onClick={() => handleEvaluateProject(item._id)}
+                    leftIcon={<Eye className="w-4 h-4" />}>
                     Evaluar
                   </Button>
                 </div>
               </div>
-          )}
-          </div> :
+            )}
+          </div>) :
 
         <div className="p-12 text-center">
             <div className="bg-slate-100 p-4 rounded-full inline-block mb-4">

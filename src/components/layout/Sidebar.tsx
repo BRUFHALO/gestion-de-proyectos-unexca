@@ -7,7 +7,8 @@ import {
   LogOut,
   Menu,
   GraduationCap,
-  MessageSquare } from
+  MessageSquare,
+  FileText } from
 'lucide-react';
 import { Avatar } from '../ui/Avatar';
 interface SidebarProps {
@@ -65,6 +66,11 @@ export function Sidebar({
         id: 'coordinator-dashboard',
         label: 'Gestión',
         icon: <Users className="w-5 h-5" />
+      },
+      {
+        id: 'coordinator-reports',
+        label: 'Reportes',
+        icon: <FileText className="w-5 h-5" />
       }]
 
     };

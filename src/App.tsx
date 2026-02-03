@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
-import { LoginPage } from './pages/LoginPage';
+import React, { useState, useEffect } from 'react';
+import { LoginPageCedula } from './pages/LoginPageCedula';
 import { PublicLibrary } from './pages/PublicLibrary';
 import { StudentDashboard } from './pages/StudentDashboard';
 import { TeacherDashboard } from './pages/TeacherDashboard';
 import { TeacherCoordinatorChat } from './pages/TeacherCoordinatorChat';
 import { CoordinatorDashboard } from './pages/CoordinatorDashboard';
+import { CoordinatorReports } from './pages/CoordinatorReports';
 import { EvaluationCanvas } from './pages/EvaluationCanvas';
 import { StudentFeedbackView } from './pages/StudentFeedbackView';
+import { ProjectDetailView } from './pages/ProjectDetailView';
+import { TeacherFeedbackPanel } from './pages/TeacherFeedbackPanel';
+import { StudentPDFViewer } from './components/StudentPDFViewer';
 type Role = 'student' | 'teacher' | 'coordinator';
 export function App() {
   const [user, setUser] = useState<{
@@ -16,34 +20,56 @@ export function App() {
   } | null>(null);
   // La biblioteca es la página inicial por defecto (acceso público)
   const [currentPage, setCurrentPage] = useState<string>('library');
-  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
+  const [selectedProjectId, setSelectedProjectId] = useState<string | number | null>(
     null
   );
-  const handleLogin = (role: Role) => {
-    const mockUsers = {
-      student: {
-        name: 'Alejandro Ruiz',
-        email: 'alex@unexca.edu.ve',
-        role: 'student' as Role
-      },
-      teacher: {
-        name: 'Prof. Martínez',
-        email: 'martinez@unexca.edu.ve',
-        role: 'teacher' as Role
-      },
-      coordinator: {
-        name: 'Dra. Carmen López',
-        email: 'carmen@unexca.edu.ve',
-        role: 'coordinator' as Role
+
+  // Restaurar sesión desde localStorage al montar el componente
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    const storedRole = localStorage.getItem('userRole');
+    
+    if (storedUser && storedRole) {
+      try {
+        const userData = JSON.parse(storedUser);
+        setUser({
+          name: userData.name,
+          email: userData.email,
+          role: userData.role
+        });
+        
+        // Redirigir al dashboard correspondiente
+        if (userData.role === 'student') {
+          setCurrentPage('student-dashboard');
+        } else if (userData.role === 'teacher') {
+          setCurrentPage('teacher-dashboard');
+        } else if (userData.role === 'coordinator') {
+          setCurrentPage('coordinator-dashboard');
+        }
+      } catch (error) {
+        console.error('Error al restaurar sesión:', error);
+        localStorage.clear();
       }
-    };
-    setUser(mockUsers[role]);
+    }
+  }, []);
+  const handleLogin = (role: Role, userData: any) => {
+    // Usar datos reales del usuario autenticado desde la API
+    setUser({
+      name: userData.name,
+      email: userData.email,
+      role: userData.role
+    });
     // Redirigir al dashboard correspondiente
     if (role === 'student') setCurrentPage('student-dashboard');else
     if (role === 'teacher') setCurrentPage('teacher-dashboard');else
     if (role === 'coordinator') setCurrentPage('coordinator-dashboard');
   };
   const handleLogout = () => {
+    // Limpiar localStorage
+    localStorage.removeItem('user');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('userRole');
+    
     setUser(null);
     setCurrentPage('library'); // Volver a la biblioteca pública
     setSelectedProjectId(null);
@@ -55,7 +81,8 @@ export function App() {
       return;
     }
     // Manejar navegación con datos adicionales
-    if (page === 'student-feedback' && data?.projectId) {
+    if ((page === 'student-feedback' || page === 'project-detail' || page === 'teacher-feedback' || page === 'student-pdf-viewer') && data?.projectId) {
+      console.log('Navegando a', page, 'con projectId:', data.projectId);
       setSelectedProjectId(data.projectId);
     }
     setCurrentPage(page);
@@ -75,7 +102,7 @@ export function App() {
     // Página de login
     if (currentPage === 'login' || !user && currentPage !== 'library') {
       return (
-        <LoginPage
+        <LoginPageCedula
           onLogin={handleLogin}
           onViewLibrary={() => setCurrentPage('library')} />);
 
@@ -84,7 +111,7 @@ export function App() {
     // Páginas que requieren autenticación
     if (!user) {
       return (
-        <LoginPage
+        <LoginPageCedula
           onLogin={handleLogin}
           onViewLibrary={() => setCurrentPage('library')} />);
 
@@ -105,6 +132,20 @@ export function App() {
             projectId={selectedProjectId || 1}
             onBack={() => setCurrentPage('student-dashboard')} />);
 
+      
+      case 'project-detail':
+        return (
+          <ProjectDetailView
+            projectId={selectedProjectId?.toString() || ''}
+            onBack={() => setCurrentPage('student-dashboard')} />);
+
+      
+      case 'student-pdf-viewer':
+        return (
+          <StudentPDFViewer
+            projectId={selectedProjectId?.toString() || ''}
+            onBack={() => setCurrentPage('student-dashboard')} />);
+
 
       case 'teacher-dashboard':
         return (
@@ -112,6 +153,13 @@ export function App() {
             user={user}
             onLogout={handleLogout}
             onNavigate={handleNavigate} />);
+
+      
+      case 'teacher-feedback':
+        return (
+          <TeacherFeedbackPanel
+            projectId={selectedProjectId?.toString() || ''}
+            onBack={() => setCurrentPage('teacher-dashboard')} />);
 
 
       case 'teacher-coordinator-chat':
@@ -125,6 +173,14 @@ export function App() {
       case 'coordinator-dashboard':
         return (
           <CoordinatorDashboard
+            user={user}
+            onLogout={handleLogout}
+            onNavigate={handleNavigate} />);
+
+
+      case 'coordinator-reports':
+        return (
+          <CoordinatorReports
             user={user}
             onLogout={handleLogout}
             onNavigate={handleNavigate} />);
