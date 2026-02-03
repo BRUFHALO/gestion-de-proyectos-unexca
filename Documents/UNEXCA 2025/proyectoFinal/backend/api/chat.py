@@ -135,7 +135,8 @@ async def send_message(request: SendMessageRequest):
             "receiver_name": request.receiver_name,
             "message": request.message,
             "timestamp": datetime.now(),
-            "read": False
+            "read": False,
+            "delivered": True  # El mensaje se considera entregado al guardarlo en BD
         }
         
         await messages_collection.insert_one(message_data)
@@ -152,7 +153,8 @@ async def send_message(request: SendMessageRequest):
             "receiver_name": request.receiver_name,
             "message": request.message,
             "timestamp": datetime.now().isoformat(),
-            "read": False
+            "read": False,
+            "delivered": True
         }
         
         notification = {
