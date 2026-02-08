@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../services/api';
 import { 
   ArrowLeft, Download, MessageSquare, AlertCircle, CheckCircle, 
   Lightbulb, FileText, Send, User, Calendar, Tag
@@ -312,13 +313,13 @@ export function ProjectDetailView({ projectId, onBack }: ProjectDetailViewProps)
                   <div className="h-[calc(100%-60px)]">
                     {showAnnotations && feedbacks.some(f => f.annotation_data) ? (
                       <AnnotationViewer
-                        fileUrl={`http://localhost:8005/api/v1/projects/download/${pdfFile.file_id}`}
+                        fileUrl={`${API_BASE_URL}/api/v1/projects/download/${pdfFile.file_id}`}
                         fileName={pdfFile.filename}
                         annotations={feedbacks}
                       />
                     ) : (
                       <PDFViewer
-                        fileUrl={`http://localhost:8005/api/v1/projects/download/${pdfFile.file_id}`}
+                        fileUrl={`${API_BASE_URL}/api/v1/projects/download/${pdfFile.file_id}`}
                         fileName={pdfFile.filename}
                         highlightedPages={feedbacks.map(f => f.page).filter((p): p is number => p !== undefined)}
                         annotations={feedbacks.map(f => ({

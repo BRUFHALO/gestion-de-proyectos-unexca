@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { API_BASE_URL } from '../services/api';
 import { 
   MessageSquare, Highlighter, AlertCircle, CheckCircle, 
   X, Send, Download, FileDown, Save
@@ -56,7 +57,7 @@ export function DocxAnnotationViewer({ projectId, onSave }: DocxAnnotationViewer
   const loadDocument = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`http://localhost:8005/api/v1/docx/parse/${projectId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/docx/parse/${projectId}`, {
         method: 'POST'
       });
       
@@ -69,7 +70,7 @@ export function DocxAnnotationViewer({ projectId, onSave }: DocxAnnotationViewer
       
       // Cargar comentarios existentes desde la base de datos
       try {
-        const commentsResponse = await fetch(`http://localhost:8005/api/v1/docx/annotations/${projectId}`);
+        const commentsResponse = await fetch(`${API_BASE_URL}/api/v1/docx/annotations/${projectId}`);
         if (commentsResponse.ok) {
           const commentsData = await commentsResponse.json();
           console.log('Comentarios cargados desde BD:', commentsData);
@@ -404,7 +405,7 @@ export function DocxAnnotationViewer({ projectId, onSave }: DocxAnnotationViewer
   const handleDeleteComment = async (commentId: string) => {
     try {
       // Eliminar de la base de datos
-      const response = await fetch('http://localhost:8005/api/v1/docx/annotations/save', {
+      const response = await fetch(`${API_BASE_URL}/api/v1/docx/annotations/save`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -495,7 +496,7 @@ export function DocxAnnotationViewer({ projectId, onSave }: DocxAnnotationViewer
       console.log('Payload completo:', JSON.stringify(payload, null, 2));
       console.log('================================');
       
-      const response = await fetch('http://localhost:8005/api/v1/docx/annotations/save', {
+      const response = await fetch(`${API_BASE_URL}/api/v1/docx/annotations/save`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -524,7 +525,7 @@ export function DocxAnnotationViewer({ projectId, onSave }: DocxAnnotationViewer
 
   const handleExport = async (format: 'pdf' | 'docx') => {
     try {
-      const response = await fetch('http://localhost:8005/api/v1/docx/export', {
+      const response = await fetch(`${API_BASE_URL}/api/v1/docx/export`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

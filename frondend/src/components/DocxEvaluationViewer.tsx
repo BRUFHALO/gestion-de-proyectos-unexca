@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { API_BASE_URL } from '../services/api';
 import { 
   Download, ZoomIn, ZoomOut, Square, Circle, Type, 
   Highlighter, ArrowRight, Save, Trash2, Move, FileDown
@@ -56,7 +57,7 @@ export function DocxEvaluationViewer({ projectId, onSave }: DocxEvaluationViewer
     setIsLoading(true);
     try {
       // Cargar contenido del documento
-      const response = await fetch(`http://localhost:8005/api/v1/docx/parse/${projectId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/docx/parse/${projectId}`, {
         method: 'POST'
       });
       
@@ -68,7 +69,7 @@ export function DocxEvaluationViewer({ projectId, onSave }: DocxEvaluationViewer
       setHtmlContent(data.html);
       
       // Cargar anotaciones existentes
-      const annotationsResponse = await fetch(`http://localhost:8005/api/v1/docx/annotations/${projectId}`);
+      const annotationsResponse = await fetch(`${API_BASE_URL}/api/v1/docx/annotations/${projectId}`);
       if (annotationsResponse.ok) {
         const annotationsData = await annotationsResponse.json();
         setAnnotations(annotationsData.annotations || []);
@@ -311,7 +312,7 @@ export function DocxEvaluationViewer({ projectId, onSave }: DocxEvaluationViewer
     });
     
     try {
-      const response = await fetch('http://localhost:8005/api/v1/docx/annotations/save', {
+      const response = await fetch(`${API_BASE_URL}/api/v1/docx/annotations/save`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -339,7 +340,7 @@ export function DocxEvaluationViewer({ projectId, onSave }: DocxEvaluationViewer
 
   const handleExport = async (format: 'pdf' | 'docx') => {
     try {
-      const response = await fetch('http://localhost:8005/api/v1/docx/export', {
+      const response = await fetch(`${API_BASE_URL}/api/v1/docx/export`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

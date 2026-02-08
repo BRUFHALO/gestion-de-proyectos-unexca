@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../services/api';
 import {
   ArrowLeft,
   MessageSquare,
@@ -43,6 +44,43 @@ export function StudentFeedbackView({
   const [message, setMessage] = useState('');
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
   const [project, setProject] = useState<any | null>(null);
+  const [chatMessages, setChatMessages] = useState([
+    {
+      id: '1',
+      sender: 'Prof. Martínez',
+      text: 'Hola, he revisado tu proyecto y tengo algunos comentarios.',
+      time: '18 Oct, 02:00 PM',
+      isMe: false,
+    },
+    {
+      id: '2',
+      sender: 'Prof. Martínez',
+      text: 'Primero, felicidades por el esfuerzo y la estructura del trabajo.',
+      time: '18 Oct, 02:05 PM',
+      isMe: false,
+    },
+    {
+      id: '3',
+      sender: 'Prof. Martínez',
+      text: 'Te sugiero revisar la sección de metodología para agregar más detalles.',
+      time: '18 Oct, 02:10 PM',
+      isMe: false,
+    },
+    {
+      id: '4',
+      sender: 'Prof. Martínez',
+      text: 'También considera agregar más referencias bibliográficas.',
+      time: '18 Oct, 02:15 PM',
+      isMe: false,
+    },
+    {
+      id: '5',
+      sender: 'Prof. Martínez',
+      text: '¡Excelente trabajo! El proyecto ha sido aprobado con 95 puntos.',
+      time: '18 Oct, 02:30 PM',
+      isMe: false,
+    },
+  ]);
   const totalPages = 42;
 
   useEffect(() => {
@@ -52,7 +90,7 @@ export function StudentFeedbackView({
   const loadProjectDetails = async () => {
     try {
       // Cargar datos básicos del proyecto
-      const projectResponse = await fetch(`http://localhost:8005/api/v1/projects/${projectId}`);
+      const projectResponse = await fetch(`${API_BASE_URL}/api/v1/projects/${projectId}`);
       if (!projectResponse.ok) {
         console.error('Error al cargar detalles del proyecto');
         return;
@@ -61,7 +99,7 @@ export function StudentFeedbackView({
       const projectData = await projectResponse.json();
       
       // Cargar calificación
-      const gradeResponse = await fetch(`http://localhost:8005/api/v1/projects/${projectId}/evaluation/grade`);
+      const gradeResponse = await fetch(`${API_BASE_URL}/api/v1/projects/${projectId}/evaluation/grade`);
       if (gradeResponse.ok) {
         const gradeData = await gradeResponse.json();
         console.log('Grade data:', gradeData);
@@ -145,44 +183,6 @@ export function StudentFeedbackView({
       author: 'Prof. Martínez',
       date: '17 Oct, 2024',
       resolved: false,
-    },
-  ];
-
-  const chatMessages = [
-    {
-      id: '1',
-      sender: 'Prof. Martínez',
-      text: 'He revisado tu proyecto. En general está muy bien, pero hay algunas correcciones que debes hacer.',
-      time: '15 Oct, 10:30 AM',
-      isMe: false,
-    },
-    {
-      id: '2',
-      sender: 'Yo',
-      text: 'Gracias profesor. Ya vi los comentarios, trabajaré en las correcciones.',
-      time: '15 Oct, 11:45 AM',
-      isMe: true,
-    },
-    {
-      id: '3',
-      sender: 'Prof. Martínez',
-      text: 'Perfecto. Recuerda que las citas deben estar en formato APA.',
-      time: '15 Oct, 12:00 PM',
-      isMe: false,
-    },
-    {
-      id: '4',
-      sender: 'Yo',
-      text: 'Entendido. Ya corregí las citas y agregué el diagrama de flujo que sugirió.',
-      time: '16 Oct, 09:15 AM',
-      isMe: true,
-    },
-    {
-      id: '5',
-      sender: 'Prof. Martínez',
-      text: '¡Excelente trabajo! El proyecto ha sido aprobado con 95 puntos.',
-      time: '18 Oct, 02:30 PM',
-      isMe: false,
     },
   ];
 

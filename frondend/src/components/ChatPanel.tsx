@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { API_BASE_URL } from '../services/api';
 import { MessageSquare, Send, X, User, Clock, Check, CheckCheck } from 'lucide-react';
 import { Button } from './ui/Button';
 
@@ -72,7 +73,7 @@ export function ChatPanel({ userId, userName, userRole, isOpen, onClose, otherUs
 
   const connectWebSocket = () => {
     try {
-      const ws = new WebSocket(`ws://localhost:8005/api/v1/chat/ws/${userId}`);
+      const ws = new WebSocket(`${API_BASE_URL.replace('http://', 'ws://').replace('https://', 'wss://')}/api/v1/chat/ws/${userId}`);
       
       ws.onopen = () => {
         console.log('✅ WebSocket conectado');
@@ -156,7 +157,7 @@ export function ChatPanel({ userId, userName, userRole, isOpen, onClose, otherUs
   const loadConversations = async () => {
     try {
       const response = await fetch(
-        `http://localhost:8005/api/v1/chat/conversations/${userId}?role=${userRole}`
+        `${API_BASE_URL}/api/v1/chat/conversations/${userId}?role=${userRole}`
       );
       if (response.ok) {
         const data = await response.json();
@@ -170,7 +171,7 @@ export function ChatPanel({ userId, userName, userRole, isOpen, onClose, otherUs
   const loadMessages = async (conversationId: string) => {
     try {
       const response = await fetch(
-        `http://localhost:8005/api/v1/chat/messages/${conversationId}`
+        `${API_BASE_URL}/api/v1/chat/messages/${conversationId}`
       );
       if (response.ok) {
         const data = await response.json();
@@ -184,7 +185,7 @@ export function ChatPanel({ userId, userName, userRole, isOpen, onClose, otherUs
   const markAsRead = async (conversationId: string) => {
     try {
       await fetch(
-        `http://localhost:8005/api/v1/chat/mark-as-read/${conversationId}?user_role=${userRole}`,
+        `${API_BASE_URL}/api/v1/chat/mark-as-read/${conversationId}?user_role=${userRole}`,
         { method: 'PUT' }
       );
       loadConversations(); // Actualizar contadores
@@ -212,7 +213,7 @@ export function ChatPanel({ userId, userName, userRole, isOpen, onClose, otherUs
 
     setSending(true);
     try {
-      const response = await fetch('http://localhost:8005/api/v1/chat/send-message', {
+      const response = await fetch(`${API_BASE_URL}/api/v1/chat/send-message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -237,7 +238,7 @@ export function ChatPanel({ userId, userName, userRole, isOpen, onClose, otherUs
           await loadConversations();
           // Seleccionar la nueva conversación
           const conversationsResponse = await fetch(
-            `http://localhost:8005/api/v1/chat/conversations/${userId}?role=${userRole}`
+            `${API_BASE_URL}/api/v1/chat/conversations/${userId}?role=${userRole}`
           );
           if (conversationsResponse.ok) {
             const conversationsData = await conversationsResponse.json();

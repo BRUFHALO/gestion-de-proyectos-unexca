@@ -8,7 +8,7 @@ import { Button } from './ui/Button';
 import { ChatPanel } from './ChatPanel';
 import { useToast } from './ui/Toast';
 import { Modal } from './ui/Modal';
-const API_BASE_URL = 'https://gestion-de-proyectos-unexca.onrender.com';
+import { API_BASE_URL } from '../services/api';
 // Configurar worker de PDF.js
 // Usar la versión del CDN de unpkg que es más confiable
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -301,7 +301,7 @@ export function PDFEvaluationViewer({
     setIsSaving(true);
     try {
       const response = await fetch(
-        '${API_BASE_URL}/api/v1/pdf-evaluation/annotations/save',
+        `${API_BASE_URL}/api/v1/pdf-evaluation/annotations/save`,
         {
           method: 'POST',
           headers: {

@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { ChatPanel } from './ChatPanel';
-const API_BASE_URL = 'https://gestion-de-proyectos-unexca.onrender.com';
+import { API_BASE_URL } from '../services/api';
 // Configurar worker de PDF.js
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
