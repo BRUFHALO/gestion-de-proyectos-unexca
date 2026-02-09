@@ -364,10 +364,12 @@ async def upload_project(
                         "file_id": file_info["stored_filename"],
                         "filename": file_info["filename"],
                         "file_path": file_info["relative_path"],
+                        "file_url": file_info.get("file_url", f"/uploads/{file_info['relative_path']}"),
                         "file_size": file_info["file_size"],
                         "file_type": "application/pdf",
                         "uploaded_at": file_info["uploaded_at"],
-                        "uploaded_by": student_id
+                        "uploaded_by": student_id,
+                        "cloudinary": file_info.get("cloudinary", False)
                     }
                 ],
                 "evaluations": [],

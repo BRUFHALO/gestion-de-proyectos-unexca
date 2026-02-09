@@ -6,6 +6,7 @@ import uuid
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
+from .cloudinary_storage import CloudinaryStorage
 
 
 class FileStorage:
@@ -17,10 +18,16 @@ class FileStorage:
     
     @classmethod
     def initialize(cls):
-        """Crear directorios necesarios"""
-        cls.BASE_DIR.mkdir(exist_ok=True)
-        cls.PROJECTS_DIR.mkdir(exist_ok=True)
-        print(f"📁 Directorios de almacenamiento creados en: {cls.BASE_DIR}")
+        """Inicializar almacenamiento"""
+        storage_type = os.getenv("STORAGE_TYPE", "local")
+        
+        if storage_type == "cloudinary":
+            CloudinaryStorage.initialize()
+            print("☁️ Usando Cloudinary para almacenamiento")
+        else:
+            cls.BASE_DIR.mkdir(exist_ok=True)
+            cls.PROJECTS_DIR.mkdir(exist_ok=True)
+            print(f"📁 Directorios de almacenamiento creados en: {cls.BASE_DIR}")
     
     @classmethod
     def save_project_file(cls, file_content: bytes, filename: str, student_id: str) -> dict:
@@ -35,30 +42,38 @@ class FileStorage:
         Returns:
             dict con información del archivo guardado
         """
-        # Crear directorio para el estudiante si no existe
-        student_dir = cls.PROJECTS_DIR / student_id
-        student_dir.mkdir(exist_ok=True)
+        storage_type = os.getenv("STORAGE_TYPE", "local")
         
-        # Generar nombre único para el archivo
-        file_extension = Path(filename).suffix
-        unique_filename = f"{uuid.uuid4().hex}{file_extension}"
-        file_path = student_dir / unique_filename
-        
-        # Guardar archivo
-        with open(file_path, 'wb') as f:
-            f.write(file_content)
-        
-        # Calcular tamaño
-        file_size = len(file_content)
-        
-        return {
-            "filename": filename,
-            "stored_filename": unique_filename,
-            "file_path": str(file_path),
-            "relative_path": f"projects/{student_id}/{unique_filename}",
-            "file_size": file_size,
-            "uploaded_at": datetime.utcnow()
-        }
+        if storage_type == "cloudinary":
+            # Usar Cloudinary
+            return CloudinaryStorage.upload_pdf(file_content, filename, student_id)
+        else:
+            # Usar almacenamiento local
+            # Crear directorio para el estudiante si no existe
+            student_dir = cls.PROJECTS_DIR / student_id
+            student_dir.mkdir(exist_ok=True)
+            
+            # Generar nombre único para el archivo
+            file_extension = Path(filename).suffix
+            unique_filename = f"{uuid.uuid4().hex}{file_extension}"
+            file_path = student_dir / unique_filename
+            
+            # Guardar archivo
+            with open(file_path, 'wb') as f:
+                f.write(file_content)
+            
+            # Calcular tamaño
+            file_size = len(file_content)
+            
+            return {
+                "filename": filename,
+                "stored_filename": unique_filename,
+                "file_path": str(file_path),
+                "relative_path": f"projects/{student_id}/{unique_filename}",
+                "file_size": file_size,
+                "uploaded_at": datetime.utcnow(),
+                "cloudinary": False
+            }
     
     @classmethod
     def get_file_path(cls, relative_path: str) -> Optional[Path]:

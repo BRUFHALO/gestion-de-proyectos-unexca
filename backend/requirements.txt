@@ -20,6 +20,9 @@ reportlab>=4.0.0            # Para generar PDFs con anotaciones
 PyMuPDF>=1.23.0             # Para procesamiento avanzado de PDFs y conversión
 lxml>=4.9.0                 # Para procesamiento XML/HTML
 
+# Storage en la nube
+cloudinary>=1.41.0
+
 # Los siguientes paquetes se instalarán después cuando sean necesarios:
 # python-jose[cryptography]  # Para autenticación JWT
 # passlib[bcrypt]            # Para hasheo de contraseñas

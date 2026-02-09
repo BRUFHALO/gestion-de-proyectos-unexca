@@ -148,7 +148,13 @@ export function StudentPDFViewer({ projectId, onBack }: StudentPDFViewerProps) {
       if (!pdfPath && project.uploaded_files && project.uploaded_files.length > 0) {
         const file = project.uploaded_files[0];
         console.log('File from uploaded_files:', file);
-        pdfPath = file.file_path || `projects/${projectId}/${file.file_id}`;
+        // Usar URL de Cloudinary si está disponible, sino construir URL local
+        if (file.file_url && !file.file_url.startsWith('/uploads/')) {
+          setPdfUrl(file.file_url);
+        } else {
+          const pdfPath = file.file_path || `projects/${projectId}/${file.file_id}`;
+          setPdfUrl(`${API_BASE_URL}/uploads/${pdfPath}`);
+        }
       }
       
       if (!pdfPath) {
@@ -157,6 +163,7 @@ export function StudentPDFViewer({ projectId, onBack }: StudentPDFViewerProps) {
         throw new Error('No se encontró el archivo del proyecto. Por favor, contacta al administrador.');
       }
       
+      console.log('URL final del PDF:', pdfUrl);
       const fullUrl = `${API_BASE_URL}/uploads/${pdfPath}`;
       console.log('URL final del PDF:', fullUrl);
       setPdfUrl(fullUrl);
