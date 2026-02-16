@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { API_BASE_URL } from '../services/api';
+import { notificationsService } from '../services/notifications';
 import { MessageSquare, Send, X, User, Clock, Check, CheckCheck } from 'lucide-react';
 import { Button } from './ui/Button';
 
@@ -232,6 +233,21 @@ export function ChatPanel({ userId, userName, userRole, isOpen, onClose, otherUs
       if (response.ok) {
         const data = await response.json();
         setNewMessage('');
+        
+        // Enviar notificación al receptor
+        try {
+          const notification = notificationsService.createMessageNotification(
+            receiverId,
+            selectedConversation?.project_id || projectId || '',
+            selectedConversation?.project_title || projectTitle || 'Proyecto sin título',
+            userId,
+            userName
+          );
+          await notificationsService.sendNotification(notification);
+        } catch (error) {
+          console.error('Error sending notification:', error);
+          // No mostrar error al usuario para no interrumpir el flujo
+        }
         
         // Si era la primera conversación, recargar la lista
         if (!selectedConversation) {

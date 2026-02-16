@@ -10,7 +10,7 @@ import {
   Eye,
   MessageSquare } from
 'lucide-react';
-import { projectsAPI } from '../services/api';
+import { projectsAPI, API_BASE_URL } from '../services/api';
 import { useToast } from '../components/ui/Toast';
 import { MainLayout } from '../components/layout/MainLayout';
 import { Card, CardContent } from '../components/ui/Card';
@@ -57,7 +57,28 @@ export function TeacherDashboard({
       setLoading(true);
       try {
         const projects = await projectsAPI.getAll({ assigned_to: userData._id });
-        setAssignedProjects(projects);
+        
+        // Cargar información de evaluación para cada proyecto
+        const projectsWithEvaluation = await Promise.all(
+          projects.map(async (project) => {
+            try {
+              const response = await fetch(`${API_BASE_URL}/api/v1/projects/${project._id}/evaluation/grade`);
+              if (response.ok) {
+                const evaluationData = await response.json();
+                console.log(`Evaluation data for project ${project._id}:`, evaluationData);
+                return { ...project, evaluation: evaluationData };
+              } else {
+                console.log(`No evaluation data for project ${project._id}, status: ${response.status}`);
+              }
+            } catch (error) {
+              console.error(`Error loading evaluation for project ${project._id}:`, error);
+            }
+            return project;
+          })
+        );
+        
+        console.log('Projects with evaluation:', projectsWithEvaluation);
+        setAssignedProjects(projectsWithEvaluation);
       } catch (error) {
         console.error('Error al cargar proyectos:', error);
         showToast('error', 'Error al cargar proyectos asignados');
@@ -71,18 +92,43 @@ export function TeacherDashboard({
     }
   }, [userData, showToast]);
   // Calcular estadísticas desde proyectos reales
+  const approvedCount = assignedProjects.filter(p => p.evaluation?.status === 'aprobado').length;
+  const reprobatedCount = assignedProjects.filter(p => p.evaluation?.status === 'reprobado').length;
+  const toEvaluateCount = assignedProjects.filter(p => 
+    p.evaluation?.status === 'en_revision' || 
+    (!p.evaluation?.status && (p.metadata?.status === 'submitted' || p.metadata?.status === 'in_review'))
+  ).length;
+
+  console.log('Stats calculation:', {
+    approved: approvedCount,
+    reprobated: reprobatedCount,
+    toEvaluate: toEvaluateCount,
+    projects: assignedProjects.map(p => ({
+      id: p._id,
+      title: p.title,
+      evaluationStatus: p.evaluation?.status,
+      metadataStatus: p.metadata?.status
+    }))
+  });
+
   const stats = [
   {
     label: 'Por Evaluar',
-    value: assignedProjects.filter(p => p.metadata?.status === 'submitted' || p.metadata?.status === 'in_review').length.toString(),
+    value: toEvaluateCount.toString(),
     icon: <Clock className="w-6 h-6 text-orange-600" />,
     bg: 'bg-orange-100'
   },
   {
-    label: 'Evaluados',
-    value: assignedProjects.filter(p => p.metadata?.status === 'approved' || p.metadata?.status === 'rejected').length.toString(),
+    label: 'Aprobados',
+    value: approvedCount.toString(),
     icon: <CheckSquare className="w-6 h-6 text-green-600" />,
     bg: 'bg-green-100'
+  },
+  {
+    label: 'Reprobados',
+    value: reprobatedCount.toString(),
+    icon: <FileText className="w-6 h-6 text-red-600" />,
+    bg: 'bg-red-100'
   },
   {
     label: 'Total Asignados',

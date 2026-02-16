@@ -59,10 +59,10 @@ export function StudentPDFViewer({ projectId, onBack }: StudentPDFViewerProps) {
   const pageRef = useRef<HTMLDivElement>(null);
 
   const colors = [
-    { name: 'Amarillo', value: 'yellow', hex: '#ffff00' },
-    { name: 'Rojo', value: 'red', hex: '#ff0000' },
-    { name: 'Verde', value: 'green', hex: '#00ff00' },
-    { name: 'Azul', value: 'blue', hex: '#0000ff' }
+    { name: 'Amarillo', value: 'yellow', hex: '#ffff00', meaning: 'Resaltado general - Para comentarios importantes' },
+    { name: 'Rojo', value: 'red', hex: '#ff0000', meaning: 'Error o punto a corregir - Aspectos que necesitan mejora' },
+    { name: 'Verde', value: 'green', hex: '#00ff00', meaning: 'Acierto o punto positivo - Aspectos bien hechos' },
+    { name: 'Azul', value: 'blue', hex: '#0000ff', meaning: 'Comentario o sugerencia - Puntos a discutir' }
   ];
 
   useEffect(() => {
@@ -148,24 +148,37 @@ export function StudentPDFViewer({ projectId, onBack }: StudentPDFViewerProps) {
       if (!pdfPath && project.uploaded_files && project.uploaded_files.length > 0) {
         const file = project.uploaded_files[0];
         console.log('File from uploaded_files:', file);
+        
+        // Priorizar PDF URL para archivos convertidos
+        const pdfUrl = file.pdf_url || file.file_url;
+        
         // Usar URL de Cloudinary si está disponible, sino construir URL local
-        if (file.file_url && !file.file_url.startsWith('/uploads/')) {
-          setPdfUrl(file.file_url);
+        if (pdfUrl && (pdfUrl.startsWith('http') || (!pdfUrl.startsWith('/uploads/')))) {
+          setPdfUrl(pdfUrl);
+          console.log('Using Cloudinary/external URL:', pdfUrl);
         } else {
-          const pdfPath = file.file_path || `projects/${projectId}/${file.file_id}`;
-          setPdfUrl(`${API_BASE_URL}/uploads/${pdfPath}`);
+          const fallbackPath = file.file_path || file.pdf_path || `projects/${projectId}/${file.file_id}`;
+          const fullUrl = `${API_BASE_URL}/uploads/${fallbackPath}`;
+          setPdfUrl(fullUrl);
+          console.log('Using local URL:', fullUrl);
         }
       }
       
+      // Si ya tenemos URL (probablemente de Cloudinary), no procesar más
+      if (pdfUrl) {
+        console.log('PDF URL already set:', pdfUrl);
+        return;
+      }
+      
+      // Si llegamos aquí, usar la ruta local
       if (!pdfPath) {
         console.error('No se pudo encontrar la ruta del PDF en ninguna ubicación');
         console.log('Estructura del proyecto:', JSON.stringify(project, null, 2));
         throw new Error('No se encontró el archivo del proyecto. Por favor, contacta al administrador.');
       }
       
-      console.log('URL final del PDF:', pdfUrl);
       const fullUrl = `${API_BASE_URL}/uploads/${pdfPath}`;
-      console.log('URL final del PDF:', fullUrl);
+      console.log('Using local fallback URL:', fullUrl);
       setPdfUrl(fullUrl);
     } catch (error) {
       console.error('Error cargando PDF:', error);
@@ -332,20 +345,48 @@ export function StudentPDFViewer({ projectId, onBack }: StudentPDFViewerProps) {
 
                 {numPages > 1 && (
                   <div className="flex items-center gap-1 ml-2 pl-2 border-l border-slate-300">
-                    {Array.from({ length: Math.min(numPages, 15) }, (_, i) => i + 1).map((pageNum) => (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`w-8 h-8 rounded text-sm font-medium transition-all ${
-                          currentPage === pageNum
-                            ? 'bg-primary text-white shadow-md'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                        title={`Ir a página ${pageNum}`}
-                      >
-                        {pageNum}
-                      </button>
-                    ))}
+                    {(() => {
+                      // Calculate the start page of the current group (15 pages per group)
+                      const groupSize = 15;
+                      
+                      // When user clicks a page, it becomes the first page of the group
+                      // Example: if user clicks page 15, show pages 15-30
+                      let startPage = currentPage;
+                      
+                      // Ensure startPage is at least 1
+                      startPage = Math.max(1, startPage);
+                      
+                      // Calculate end page, ensuring it doesn't exceed numPages
+                      let endPage = startPage + groupSize - 1;
+                      if (endPage > numPages) {
+                        endPage = numPages;
+                        // Adjust startPage if we're at the end and don't have enough pages
+                        if (endPage - startPage + 1 < groupSize) {
+                          startPage = Math.max(1, endPage - groupSize + 1);
+                        }
+                      }
+                      
+                      // Generate page numbers for the current group
+                      const pages = [];
+                      for (let i = startPage; i <= endPage; i++) {
+                        pages.push(i);
+                      }
+                      
+                      return pages.map((pageNum) => (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`w-8 h-8 rounded text-sm font-medium transition-all ${
+                            currentPage === pageNum
+                              ? 'bg-primary text-white shadow-md'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                          title={`Ir a página ${pageNum}`}
+                        >
+                          {pageNum}
+                        </button>
+                      ));
+                    })()}
                     {numPages > 15 && (
                       <span className="text-slate-400 px-1">...</span>
                     )}
@@ -396,7 +437,7 @@ export function StudentPDFViewer({ projectId, onBack }: StudentPDFViewerProps) {
                     Calificación:
                   </span>
                   <span className="text-xl font-bold text-green-600">
-                    {gradeData.grade}/100
+                    {gradeData.grade}/20
                   </span>
                   <span className="text-xs text-green-600 ml-1">
                     ({gradeData.grade_type === 'parcial' ? 'Parcial' : 'Definitiva'})
@@ -615,10 +656,8 @@ export function StudentPDFViewer({ projectId, onBack }: StudentPDFViewerProps) {
                                        '#3b82f6'
                       }}
                     />
-                    <span className="text-sm text-slate-700 capitalize">
-                      {selectedAnnotation.color === 'yellow' ? 'Amarillo' :
-                       selectedAnnotation.color === 'red' ? 'Rojo' :
-                       selectedAnnotation.color === 'green' ? 'Verde' : 'Azul'}
+                    <span className="text-sm text-slate-700">
+                      {colors.find(c => c.value === selectedAnnotation.color)?.meaning || selectedAnnotation.color}
                     </span>
                   </div>
                 </div>

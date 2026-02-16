@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, Clock, CheckCircle, FileText, Plus, Eye, User, BookOpen, AlertCircle, MessageSquare } from 'lucide-react';
 import { useToast } from '../components/ui/Toast';
-import { projectsAPI } from '../services/api';
+import { projectsAPI, API_BASE_URL } from '../services/api';
 import { MainLayout } from '../components/layout/MainLayout';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -9,6 +9,7 @@ import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
 import { ChatPanel } from '../components/ChatPanel';
+import { NotificationsDropdown } from '../components/NotificationsDropdown';
 interface StudentDashboardProps {
   user: any;
   onLogout: () => void;
@@ -51,7 +52,24 @@ export function StudentDashboard({
       setLoadingProjects(true);
       try {
         const projects = await projectsAPI.getAll({ created_by: userData._id });
-        setMyProjects(projects);
+        
+        // Cargar información de evaluación para cada proyecto
+        const projectsWithEvaluation = await Promise.all(
+          projects.map(async (project) => {
+            try {
+              const response = await fetch(`${API_BASE_URL}/api/v1/projects/${project._id}/evaluation/grade`);
+              if (response.ok) {
+                const evaluationData = await response.json();
+                return { ...project, evaluation: evaluationData };
+              }
+            } catch (error) {
+              console.error(`Error loading evaluation for project ${project._id}:`, error);
+            }
+            return project;
+          })
+        );
+        
+        setMyProjects(projectsWithEvaluation);
       } catch (error) {
         console.error('Error al cargar proyectos:', error);
         showToast('error', 'Error al cargar tus proyectos');
@@ -191,12 +209,14 @@ export function StudentDashboard({
       user={user}
       title="Mi Panel"
       actions={
-      <Button
-        onClick={() => setIsUploadModalOpen(true)}
-        leftIcon={<Plus className="w-4 h-4" />}>
-
-          Nueva Entrega
-        </Button>
+        <div className="flex items-center gap-3">
+          {userData?._id && <NotificationsDropdown userId={userData._id} userRole="student" />}
+          <Button
+            onClick={() => setIsUploadModalOpen(true)}
+            leftIcon={<Plus className="w-4 h-4" />}>
+            Nueva Entrega
+          </Button>
+        </div>
       }>
 
       {/* Información Académica y Profesor Asignado */}
@@ -219,12 +239,6 @@ export function StudentDashboard({
             <div className="border-t border-white/20 pt-4 mt-4">
               <p className="text-sm text-white/80 mb-1">Carrera</p>
               <p className="font-medium">{userData?.university_data?.career || 'No especificada'}</p>
-              {userData?.university_data?.gpa && (
-                <div className="mt-3">
-                  <p className="text-sm text-white/80 mb-1">Índice Académico</p>
-                  <p className="text-xl font-bold">{userData.university_data.gpa.toFixed(2)}</p>
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
@@ -254,14 +268,6 @@ export function StudentDashboard({
                     Código: {userData.assigned_teacher.subject_code || '—'}
                   </p>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  leftIcon={<Eye className="w-4 h-4" />}
-                >
-                  Ver Perfil del Profesor
-                </Button>
               </div>
             )}
             {!userData?.assigned_teacher && (
@@ -360,15 +366,23 @@ export function StudentDashboard({
                       {project.academic_info?.methodology || '—'}
                     </td>
                     <td className="px-6 py-4">
-                      {project.versions?.[project.metadata?.current_version - 1]?.evaluations?.length > 0 ?
-                    <Badge variant="info" className="text-xs">
-                          {project.versions[project.metadata.current_version - 1].evaluations.length} evaluación(es)
-                        </Badge> :
-
-                    <span className="text-slate-400 text-xs">
+                      {project.evaluation?.status ? (
+                        <Badge 
+                          variant={
+                            project.evaluation.status === 'aprobado' ? 'success' :
+                            project.evaluation.status === 'reprobado' ? 'danger' : 'warning'
+                          } 
+                          className="text-xs"
+                        >
+                          {project.evaluation.status === 'en_revision' ? '🔄 En Revisión' :
+                           project.evaluation.status === 'aprobado' ? '✅ Aprobado' :
+                           project.evaluation.status === 'reprobado' ? '❌ Reprobado' : '📝 Sin evaluar'}
+                        </Badge>
+                      ) : (
+                        <span className="text-slate-400 text-xs">
                           Sin evaluar
                         </span>
-                    }
+                      )}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <Button

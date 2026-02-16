@@ -2,13 +2,14 @@ import { useState, useRef, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { 
   ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Save, 
-  MessageSquare, Trash2, X, Check, FileText, User, Home
+  MessageSquare, Trash2, X, Check, User, Home
 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { ChatPanel } from './ChatPanel';
 import { useToast } from './ui/Toast';
 import { Modal } from './ui/Modal';
 import { API_BASE_URL } from '../services/api';
+import { notificationsService } from '../services/notifications';
 // Configurar worker de PDF.js
 // Usar la versión del CDN de unpkg que es más confiable
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -81,13 +82,15 @@ export function PDFEvaluationViewer({
   const pageRef = useRef<HTMLDivElement>(null);
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
 
-  const goToDashboard = () => {
-    window.location.href = '/teacher-dashboard';
-  };
-
   const saveGradeAndStatus = async () => {
     if (!grade.trim()) {
       showToast('warning', 'Por favor ingresa una calificación');
+      return;
+    }
+
+    const gradeValue = parseFloat(grade);
+    if (gradeValue < 1 || gradeValue > 20) {
+      showToast('warning', 'La calificación debe estar entre 1 y 20 puntos');
       return;
     }
 
@@ -98,7 +101,7 @@ export function PDFEvaluationViewer({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          grade: parseFloat(grade),
+          grade: gradeValue,
           grade_type: gradeType,
           status: status,
           teacher_id: teacherId
@@ -134,10 +137,10 @@ export function PDFEvaluationViewer({
   };
 
   const colors = [
-    { name: 'Amarillo', value: 'yellow', hex: '#ffff00' },
-    { name: 'Rojo', value: 'red', hex: '#ff0000' },
-    { name: 'Verde', value: 'green', hex: '#00ff00' },
-    { name: 'Azul', value: 'blue', hex: '#0000ff' }
+    { name: 'Amarillo', value: 'yellow', hex: '#ffff00', meaning: 'Resaltado general - Para comentarios importantes' },
+    { name: 'Rojo', value: 'red', hex: '#ff0000', meaning: 'Error o punto a corregir - Aspectos que necesitan mejora' },
+    { name: 'Verde', value: 'green', hex: '#00ff00', meaning: 'Acierto o punto positivo - Aspectos bien hechos' },
+    { name: 'Azul', value: 'blue', hex: '#0000ff', meaning: 'Comentario o sugerencia - Puntos a discutir' }
   ];
 
   useEffect(() => {
@@ -181,9 +184,20 @@ export function PDFEvaluationViewer({
         throw new Error('No se encontró el archivo del proyecto');
       }
 
-      // Construir URL del PDF
-      const pdfPath = file.file_path || `projects/${projectId}/${file.file_id}`;
-      setPdfUrl(`${API_BASE_URL}/uploads/${pdfPath}`);
+      // Construir URL del PDF - priorizar URLs de Cloudinary
+      const pdfUrl = file.pdf_url || file.file_url;
+      
+      if (pdfUrl && (pdfUrl.startsWith('http') || (!pdfUrl.startsWith('/uploads/')))) {
+        // Usar URL de Cloudinary o externa
+        setPdfUrl(pdfUrl);
+        console.log('Using Cloudinary/external URL:', pdfUrl);
+      } else {
+        // Usar URL local
+        const pdfPath = file.file_path || file.pdf_path || `projects/${projectId}/${file.file_id}`;
+        const fullUrl = `${API_BASE_URL}/uploads/${pdfPath}`;
+        setPdfUrl(fullUrl);
+        console.log('Using local URL:', fullUrl);
+      }
     } catch (error) {
       console.error('Error cargando PDF:', error);
       showToast('error', 'Error al cargar el documento PDF');
@@ -253,7 +267,7 @@ export function PDFEvaluationViewer({
     setShowCommentBox(true);
   };
 
-  const handleSaveComment = () => {
+  const handleSaveComment = async () => {
     if (!commentText.trim()) {
       showToast('warning', 'Por favor escribe un comentario');
       return;
@@ -288,6 +302,36 @@ export function PDFEvaluationViewer({
     setCommentText('');
     setShowCommentBox(false);
     setSelectedText('');
+    
+    // Enviar notificación al estudiante
+    console.log('🔔 Debug: Attempting to send notification for comment');
+    console.log('🔔 Debug: studentInfo:', studentInfo);
+    console.log('🔔 Debug: projectId:', projectId);
+    console.log('🔔 Debug: teacherId:', teacherId);
+    console.log('🔔 Debug: teacherName:', teacherName);
+    
+    if (studentInfo) {
+      try {
+        console.log('🔔 Debug: Creating notification...');
+        const notification = notificationsService.createCommentNotification(
+          studentInfo.id,
+          projectId,
+          studentInfo.projectTitle || 'Proyecto sin título',
+          teacherId,
+          teacherName
+        );
+        console.log('🔔 Debug: Notification created:', notification);
+        
+        console.log('🔔 Debug: Sending notification...');
+        const result = await notificationsService.sendNotification(notification);
+        console.log('🔔 Debug: Notification sent successfully:', result);
+      } catch (error) {
+        console.error('❌ Error sending notification:', error);
+        // No mostrar error al usuario para no interrumpir el flujo
+      }
+    } else {
+      console.log('⚠️ Debug: No studentInfo available, cannot send notification');
+    }
     
     // Limpiar selección
     window.getSelection()?.removeAllRanges();
@@ -400,7 +444,7 @@ export function PDFEvaluationViewer({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={goToDashboard}
+                onClick={onBack}
                 leftIcon={<Home className="w-4 h-4" />}
                 className="mr-4"
               >
@@ -436,20 +480,48 @@ export function PDFEvaluationViewer({
                 {/* Navegación rápida por números */}
                 {numPages > 1 && (
                   <div className="flex items-center gap-1 ml-2 pl-2 border-l border-slate-300">
-                    {Array.from({ length: Math.min(numPages, 15) }, (_, i) => i + 1).map((pageNum) => (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`w-8 h-8 rounded text-sm font-medium transition-all ${
-                          currentPage === pageNum
-                            ? 'bg-primary text-white shadow-md'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                        title={`Ir a página ${pageNum}`}
-                      >
-                        {pageNum}
-                      </button>
-                    ))}
+                    {(() => {
+                      // Calculate the start page of the current group (15 pages per group)
+                      const groupSize = 15;
+                      
+                      // When user clicks a page, it becomes the first page of the group
+                      // Example: if user clicks page 15, show pages 15-30
+                      let startPage = currentPage;
+                      
+                      // Ensure startPage is at least 1
+                      startPage = Math.max(1, startPage);
+                      
+                      // Calculate end page, ensuring it doesn't exceed numPages
+                      let endPage = startPage + groupSize - 1;
+                      if (endPage > numPages) {
+                        endPage = numPages;
+                        // Adjust startPage if we're at the end and don't have enough pages
+                        if (endPage - startPage + 1 < groupSize) {
+                          startPage = Math.max(1, endPage - groupSize + 1);
+                        }
+                      }
+                      
+                      // Generate page numbers for the current group
+                      const pages = [];
+                      for (let i = startPage; i <= endPage; i++) {
+                        pages.push(i);
+                      }
+                      
+                      return pages.map((pageNum) => (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`w-8 h-8 rounded text-sm font-medium transition-all ${
+                            currentPage === pageNum
+                              ? 'bg-primary text-white shadow-md'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                          title={`Ir a página ${pageNum}`}
+                        >
+                          {pageNum}
+                        </button>
+                      ));
+                    })()}
                     {numPages > 15 && (
                       <span className="text-slate-400 px-1">...</span>
                     )}
@@ -500,14 +572,14 @@ export function PDFEvaluationViewer({
               {colors.map(color => (
                 <button
                   key={color.value}
-                  className={`w-8 h-8 rounded border-2 transition-all ${
+                  className={`w-8 h-8 rounded-full border-2 transition-all ${
                     selectedColor === color.value 
                       ? 'border-slate-900 scale-110' 
                       : 'border-slate-300 hover:border-slate-400'
                   }`}
                   style={{ backgroundColor: color.hex }}
                   onClick={() => setSelectedColor(color.value)}
-                  title={color.name}
+                  title={color.meaning}
                 />
               ))}
             </div>
@@ -821,10 +893,8 @@ export function PDFEvaluationViewer({
                                        '#3b82f6'
                       }}
                     />
-                    <span className="text-sm text-slate-700 capitalize">
-                      {selectedAnnotation.color === 'yellow' ? 'Amarillo' :
-                       selectedAnnotation.color === 'red' ? 'Rojo' :
-                       selectedAnnotation.color === 'green' ? 'Verde' : 'Azul'}
+                    <span className="text-sm text-slate-700">
+                      {colors.find(c => c.value === selectedAnnotation.color)?.meaning || selectedAnnotation.color}
                     </span>
                   </div>
                 </div>
@@ -904,7 +974,7 @@ export function PDFEvaluationViewer({
                 }`}
                 onClick={() => setGradeType('parcial')}
               >
-                📝 Parcial (0-100)
+                📝 Parcial (1-20)
               </button>
               <button
                 className={`flex-1 px-4 py-2 text-sm rounded-md transition-colors ${
@@ -914,7 +984,7 @@ export function PDFEvaluationViewer({
                 }`}
                 onClick={() => setGradeType('definitiva')}
               >
-                🏆 Definitiva (0-20)
+                🏆 Definitiva (1-20)
               </button>
             </div>
           </div>
@@ -926,16 +996,25 @@ export function PDFEvaluationViewer({
             </label>
             <input
               type="number"
-              min={gradeType === 'parcial' ? '0' : '0'}
-              max={gradeType === 'parcial' ? '100' : '20'}
+              min="1"
+              max="20"
               step="0.1"
               value={grade}
-              onChange={(e) => setGrade(e.target.value)}
+              onChange={(e) => {
+                const value = parseFloat(e.target.value);
+                if (value > 20) {
+                  setGrade('20');
+                } else if (value < 1) {
+                  setGrade('1');
+                } else {
+                  setGrade(e.target.value);
+                }
+              }}
               className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder={gradeType === 'parcial' ? 'Ej: 85.5' : 'Ej: 16.5'}
+              placeholder="Ej: 16.5"
             />
             <p className="text-xs text-slate-500 mt-1">
-              Rango: {gradeType === 'parcial' ? '0 - 100 puntos' : '0 - 20 puntos'}
+              Rango: 1 - 20 puntos
             </p>
           </div>
 

@@ -1,4 +1,4 @@
-import React, { useState, Component } from 'react';
+import React, { useState, Component, useEffect } from 'react';
 import {
   Search,
   Filter,
@@ -6,7 +6,9 @@ import {
   GraduationCap,
   LogIn,
   Menu,
-  X } from
+  X,
+  Loader2
+} from
 'lucide-react';
 import { ProjectCard } from '../components/features/ProjectCard';
 import { Input } from '../components/ui/Input';
@@ -31,91 +33,96 @@ export function PublicLibrary({
   const [selectedCareer, setSelectedCareer] = useState('all');
   const [selectedProject, setSelectedProject] = useState<any>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  // Datos de ejemplo
-  const projects = [
-  {
-    id: 1,
-    title: 'Implementación de IA en Planificación Urbana',
-    authors: ['María Rodríguez', 'Carlos Pérez'],
-    career: 'Ingeniería en Informática',
-    year: '2024',
-    methodology: 'Scrum',
-    abstract:
-    'Este proyecto explora la integración de algoritmos de inteligencia artificial en los procesos de planificación urbana para optimizar el flujo de tráfico y la asignación de recursos.',
-    methods: ['Machine Learning', 'Análisis de Datos', 'Python'],
-    thumbnail:
-    'https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    id: 2,
-    title: 'Modelos Financieros Sostenibles para PYMES',
-    authors: ['Ana Silva'],
-    career: 'Administración de Empresas',
-    year: '2024',
-    methodology: 'Investigación Cuantitativa',
-    abstract:
-    'Un análisis de modelos financieros sostenibles aplicables a Pequeñas y Medianas Empresas en el clima económico actual.',
-    methods: ['Análisis Estadístico', 'Modelado Financiero'],
-    thumbnail:
-    'https://images.unsplash.com/photo-1554224155-6726b3ff858f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    id: 3,
-    title: 'Transformación Digital en la Educación',
-    authors: ['Luis González', 'Elena Torres'],
-    career: 'Educación',
-    year: '2023',
-    methodology: 'Investigación-Acción',
-    abstract:
-    'Investigación sobre el impacto de las herramientas digitales en los resultados de aprendizaje en instituciones de educación superior.',
-    methods: ['Encuestas', 'Estudios de Caso'],
-    thumbnail:
-    'https://images.unsplash.com/photo-1501504905252-473c47e087f8?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    id: 4,
-    title: 'Protocolos de Ciberseguridad para Banca',
-    authors: ['David Hernández'],
-    career: 'Ingeniería en Informática',
-    year: '2024',
-    methodology: 'Cascada',
-    abstract:
-    'Desarrollo de protocolos robustos de ciberseguridad para infraestructura bancaria para prevenir amenazas digitales modernas.',
-    methods: ['Pruebas de Penetración', 'Criptografía'],
-    thumbnail:
-    'https://images.unsplash.com/photo-1563986768609-322da13575f3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    id: 5,
-    title: 'Sistema de Gestión de Inventarios con IoT',
-    authors: ['Patricia Mendoza', 'Roberto Díaz'],
-    career: 'Ingeniería en Informática',
-    year: '2023',
-    methodology: 'Ágil',
-    abstract:
-    'Implementación de un sistema de gestión de inventarios utilizando tecnología IoT para automatizar el seguimiento de productos en almacenes.',
-    methods: ['IoT', 'Base de Datos', 'APIs REST'],
-    thumbnail:
-    'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    id: 6,
-    title: 'Estrategias de Marketing Digital para Startups',
-    authors: ['Gabriela Vargas'],
-    career: 'Administración de Empresas',
-    year: '2024',
-    methodology: 'Estudio de Caso',
-    abstract:
-    'Análisis de estrategias efectivas de marketing digital implementadas por startups exitosas en Latinoamérica.',
-    methods: ['Análisis de Mercado', 'Entrevistas', 'Métricas Digitales'],
-    thumbnail:
-    'https://images.unsplash.com/photo-1460925895917-afdab827c52f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-  }];
+  const [projects, setProjects] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Cargar proyectos publicados desde el backend
+  useEffect(() => {
+    const fetchPublishedProjects = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('http://localhost:8000/api/v1/coordinator/published');
+        
+        if (!response.ok) {
+          throw new Error('Error al cargar los proyectos');
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          // Transformar los datos al formato esperado por el componente
+          const transformedProjects = data.projects.map((project: any) => ({
+            id: project.id,
+            title: project.title,
+            authors: [project.studentName],
+            career: project.career,
+            year: new Date().getFullYear().toString(), // Usar año actual o extraer de los datos
+            methodology: project.methodology || 'No especificada',
+            abstract: project.description || 'Sin descripción disponible',
+            methods: [], // Este dato podría venir del backend
+            thumbnail: '/src/config/logoUnexca.jpg', // Usar logo de UNEXCA por defecto
+            file_id: project.file_id // Agregar file_id para descarga
+          }));
+          
+          setProjects(transformedProjects);
+        } else {
+          setError('No se pudieron cargar los proyectos');
+        }
+      } catch (err) {
+        console.error('Error fetching published projects:', err);
+        setError('Error al conectar con el servidor');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPublishedProjects();
+  }, []); // Se ejecuta solo al montar el componente
+
+  // Función para descargar el PDF de un proyecto
+  const handleDownloadPDF = async (projectId: string, file_id: string | null, title: string) => {
+    if (!file_id) {
+      alert('No hay archivo disponible para descargar');
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:8000/api/v1/projects/download/${file_id}`);
+      
+      if (!response.ok) {
+        throw new Error('Error al descargar el archivo');
+      }
+
+      // Crear un blob desde la respuesta
+      const blob = await response.blob();
+      
+      // Crear una URL temporal para el blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Crear un elemento <a> temporal para la descarga
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`;
+      
+      // Simular clic en el elemento
+      document.body.appendChild(a);
+      a.click();
+      
+      // Limpiar
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+    } catch (error) {
+      console.error('Error descargando PDF:', error);
+      alert('Error al descargar el PDF. Por favor, inténtalo de nuevo.');
+    }
+  };
 
   const filteredProjects = projects.filter((p) => {
     const matchesSearch =
     p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.authors.some((a) => a.toLowerCase().includes(searchQuery.toLowerCase()));
+    p.authors.some((a: string) => a.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesCareer =
     selectedCareer === 'all' || p.career === selectedCareer;
     return matchesSearch && matchesCareer;
@@ -138,7 +145,10 @@ export function PublicLibrary({
           setSelectedCareer={setSelectedCareer}
           filteredProjects={filteredProjects}
           selectedProject={selectedProject}
-          setSelectedProject={setSelectedProject} />
+          setSelectedProject={setSelectedProject}
+          loading={loading}
+          error={error}
+          onDownloadPDF={handleDownloadPDF} />
 
       </MainLayout>);
 
@@ -243,7 +253,10 @@ export function PublicLibrary({
           setSelectedCareer={setSelectedCareer}
           filteredProjects={filteredProjects}
           selectedProject={selectedProject}
-          setSelectedProject={setSelectedProject} />
+          setSelectedProject={setSelectedProject}
+          loading={loading}
+          error={error}
+          onDownloadPDF={handleDownloadPDF} />
 
       </main>
 
@@ -273,16 +286,22 @@ function LibraryContent({
   setSelectedCareer,
   filteredProjects,
   selectedProject,
-  setSelectedProject
-
-
-
-
-
-
-
-
-}: {searchQuery: string;setSearchQuery: (q: string) => void;selectedCareer: string;setSelectedCareer: (c: string) => void;filteredProjects: any[];selectedProject: any;setSelectedProject: (p: any) => void;}) {
+  setSelectedProject,
+  loading,
+  error,
+  onDownloadPDF
+}: {
+  searchQuery: string;
+  setSearchQuery: (q: string) => void;
+  selectedCareer: string;
+  setSelectedCareer: (c: string) => void;
+  filteredProjects: any[];
+  selectedProject: any;
+  setSelectedProject: (p: any) => void;
+  loading?: boolean;
+  error?: string | null;
+  onDownloadPDF?: (projectId: string, file_id: string | null, title: string) => Promise<void>;
+}) {
   return (
     <>
       {/* Sección de Filtros */}
@@ -334,19 +353,48 @@ function LibraryContent({
         </p>
       </div>
 
+      {/* Estado de carga */}
+      {loading && (
+        <div className="flex justify-center items-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <span className="ml-2 text-slate-600">Cargando proyectos...</span>
+        </div>
+      )}
+
+      {/* Estado de error */}
+      {error && (
+        <div className="text-center py-20">
+          <div className="bg-red-50 p-4 rounded-full inline-block mb-4">
+            <X className="w-8 h-8 text-red-500" />
+          </div>
+          <h3 className="text-lg font-medium text-slate-900 mb-2">
+            Error al cargar proyectos
+          </h3>
+          <p className="text-slate-500 mb-4">{error}</p>
+          <Button 
+            onClick={() => window.location.reload()}
+            variant="outline"
+          >
+            Reintentar
+          </Button>
+        </div>
+      )}
+
       {/* Grid de Proyectos */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredProjects.map((project) =>
-        <ProjectCard
-          key={project.id}
-          {...project}
-          onView={() => setSelectedProject(project)}
-          onDownload={() => alert(`Descargando ${project.title}...`)} />
+      {!loading && !error && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredProjects.map((project) =>
+          <ProjectCard
+            key={project.id}
+            {...project}
+            onView={() => setSelectedProject(project)}
+            onDownload={() => alert(`Descargando ${project.title}...`)} />
 
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
-      {filteredProjects.length === 0 &&
+      {!loading && !error && filteredProjects.length === 0 &&
       <div className="text-center py-20">
           <div className="bg-slate-100 p-4 rounded-full inline-block mb-4">
             <Search className="w-8 h-8 text-slate-400" />
@@ -429,7 +477,7 @@ function LibraryContent({
 
             <div className="flex justify-end pt-6 border-t border-slate-100">
               <Button
-              onClick={() => alert('Descargando PDF...')}
+              onClick={() => onDownloadPDF?.(selectedProject.id, selectedProject.file_id, selectedProject.title)}
               leftIcon={<Download className="w-4 h-4" />}>
 
                 Descargar PDF Completo

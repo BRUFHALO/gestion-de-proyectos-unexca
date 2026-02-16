@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Sidebar } from './Sidebar';
-import { NotificationBell } from '../features/NotificationBell';
 import { Menu } from 'lucide-react';
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -57,8 +56,6 @@ export function MainLayout({
 
           <div className="flex items-center gap-4">
             {actions}
-            <div className="h-8 w-px bg-slate-200 mx-2 hidden sm:block" />
-            <NotificationBell />
           </div>
         </header>
 
