@@ -161,6 +161,52 @@ async def get_published_projects():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
+@router.delete("/{project_id}/unpublish")
+async def unpublish_project(project_id: str):
+    """Eliminar un proyecto de la biblioteca pública (cambiar estado de published a aprobado)"""
+    try:
+        db = Database.get_database()
+        projects_collection = db.get_collection(DatabaseConfig.PROJECTS_COLLECTION)
+        
+        # Convertir project_id a ObjectId
+        try:
+            project_object_id = ObjectId(project_id)
+        except:
+            raise HTTPException(status_code=400, detail="ID de proyecto inválido")
+        
+        # Buscar el proyecto
+        project = await projects_collection.find_one({"_id": project_object_id})
+        if not project:
+            raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+        
+        # Verificar que el proyecto esté publicado
+        if project.get("metadata", {}).get("status") != "published":
+            raise HTTPException(status_code=400, detail="El proyecto no está publicado")
+        
+        # Cambiar el estado de "published" a "aprobado"
+        result = await projects_collection.update_one(
+            {"_id": project_object_id},
+            {
+                "$set": {
+                    "metadata.status": "aprobado",
+                    "published_at": None  # Eliminar la fecha de publicación
+                }
+            }
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+        
+        return {
+            "success": True,
+            "message": "Proyecto eliminado de la biblioteca pública exitosamente"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
 @router.put("/{project_id}/reject")
 async def reject_project(project_id: str):
     """Rechazar un proyecto aprobado"""

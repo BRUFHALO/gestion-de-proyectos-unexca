@@ -2,13 +2,12 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   Users,
   BookCheck,
-  MoreVertical,
   MessageSquare,
-  X,
-  Send,
-  Paperclip,
   Search,
-  Filter } from
+  Filter,
+  MoreVertical,
+  X
+} from
 'lucide-react';
 import { MainLayout } from '../components/layout/MainLayout';
 import { Button } from '../components/ui/Button';
@@ -16,8 +15,9 @@ import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
+import { ChatComponent } from '../components/chat/ChatComponent';
 
-const API_BASE_URL = 'http://localhost:8005';
+const API_BASE_URL = 'http://localhost:8000';
 interface CoordinatorDashboardProps {
   user: any;
   onLogout: () => void;
@@ -33,14 +33,6 @@ interface Teacher {
   pendingEvaluations: number;
   lastActive: string;
 }
-interface ChatMessage {
-  id: string;
-  sender: string;
-  text: string;
-  time: string;
-  isMe: boolean;
-}
-
 interface ApprovedProject {
   id: string;
   title: string;
@@ -59,117 +51,50 @@ export function CoordinatorDashboard({
   onLogout,
   onNavigate
 }: CoordinatorDashboardProps) {
-  const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
+  const [selectedTeacher, setSelectedTeacher] = useState<any>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [message, setMessage] = useState('');
+  const [conversationId, setConversationId] = useState<string | undefined>(undefined);
   const [teacherSearchQuery, setTeacherSearchQuery] = useState('');
   const [approvedProjects, setApprovedProjects] = useState<ApprovedProject[]>([]);
   const [selectedProject, setSelectedProject] = useState<ApprovedProject | null>(null);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [publishedProjects, setPublishedProjects] = useState<ApprovedProject[]>([]);
-  const [chatMessages, setChatMessages] = useState<
-    Record<number, ChatMessage[]>>(
-    {
-      1: [
-      {
-        id: '1',
-        sender: 'Dra. Carmen López',
-        text: 'Prof. Martínez, ¿cómo va el proceso de evaluación de los proyectos de Ingeniería?',
-        time: 'Ayer, 10:30 AM',
-        isMe: true
-      },
-      {
-        id: '2',
-        sender: 'Prof. Martínez',
-        text: 'Buenos días Dra. López. Ya tengo 8 proyectos evaluados, me faltan 4 por revisar.',
-        time: 'Ayer, 11:15 AM',
-        isMe: false
-      },
-      {
-        id: '3',
-        sender: 'Dra. Carmen López',
-        text: 'Perfecto, recuerde que la fecha límite es el viernes.',
-        time: 'Ayer, 11:20 AM',
-        isMe: true
-      }],
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [loadingTeachers, setLoadingTeachers] = useState(false);
 
-      2: [
-      {
-        id: '1',
-        sender: 'Dra. Carmen López',
-        text: 'Prof. Wilson, necesito un reporte del avance de evaluaciones.',
-        time: 'Hace 2 días',
-        isMe: true
-      },
-      {
-        id: '2',
-        sender: 'Prof. Wilson',
-        text: 'Claro, le envío el reporte esta tarde.',
-        time: 'Hace 2 días',
-        isMe: false
-      }],
+  // Cargar profesores desde la base de datos
+  const loadTeachers = async () => {
+    try {
+      setLoadingTeachers(true);
+      const response = await fetch('http://localhost:8000/api/v1/users?role=teacher&is_active=true');
+      
+      if (response.ok) {
+        const usersData = await response.json();
+        
+        // Transformar datos de usuarios al formato Teacher
+        const teachersData: Teacher[] = usersData.map((user: any) => ({
+          id: user._id || user.id,
+          name: user.name || user.first_name + ' ' + user.last_name,
+          load: Math.floor(Math.random() * 15) + 5, // Temporal hasta tener datos reales
+          capacity: 20,
+          career: user.university_data?.career_name || 'Sin carrera especificada',
+          email: user.email,
+          pendingEvaluations: Math.floor(Math.random() * 10), // Temporal
+          lastActive: 'En línea' // Temporal
+        }));
+        
+        setTeachers(teachersData);
+      }
+    } catch (error) {
+      console.error('Error cargando profesores:', error);
+    } finally {
+      setLoadingTeachers(false);
+    }
+  };
 
-      3: [
-      {
-        id: '1',
-        sender: 'Dra. Carmen López',
-        text: 'Bienvenido Prof. Davis, cualquier duda con el sistema me avisa.',
-        time: 'Hace 1 semana',
-        isMe: true
-      }]
-
-    });
-  const teachers: Teacher[] = [
-  {
-    id: 1,
-    name: 'Prof. Martínez',
-    load: 12,
-    capacity: 20,
-    career: 'Ing. Informática',
-    email: 'martinez@unexca.edu.ve',
-    pendingEvaluations: 4,
-    lastActive: 'Hace 5 min'
-  },
-  {
-    id: 2,
-    name: 'Prof. Wilson',
-    load: 18,
-    capacity: 20,
-    career: 'Administración',
-    email: 'wilson@unexca.edu.ve',
-    pendingEvaluations: 2,
-    lastActive: 'Hace 1 hora'
-  },
-  {
-    id: 3,
-    name: 'Prof. Davis',
-    load: 5,
-    capacity: 15,
-    career: 'Educación',
-    email: 'davis@unexca.edu.ve',
-    pendingEvaluations: 10,
-    lastActive: 'Hace 3 horas'
-  },
-  {
-    id: 4,
-    name: 'Prof. García',
-    load: 8,
-    capacity: 15,
-    career: 'Ing. Informática',
-    email: 'garcia@unexca.edu.ve',
-    pendingEvaluations: 7,
-    lastActive: 'Hace 30 min'
-  },
-  {
-    id: 5,
-    name: 'Prof. Rodríguez',
-    load: 14,
-    capacity: 18,
-    career: 'Contaduría',
-    email: 'rodriguez@unexca.edu.ve',
-    pendingEvaluations: 4,
-    lastActive: 'En línea'
-  }];
+  useEffect(() => {
+    loadTeachers();
+  }, []);
 
   // Función para recargar todos los datos de proyectos
   const reloadProjectData = async () => {
@@ -213,33 +138,34 @@ export function CoordinatorDashboard({
     console.log('Estado actual - publishedProjects:', publishedProjects);
   }, [approvedProjects, publishedProjects]);
 
-  const openChat = (teacher: Teacher) => {
+  // Función para abrir chat y cargar conversación
+  const openChatWithTeacher = async (teacher: Teacher) => {
     setSelectedTeacher(teacher);
+    
+    // Obtener chatId del profesor
+    try {
+      const response = await fetch(`http://localhost:8000/api/v1/chat/chat-id/${teacher.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('ChatId del profesor:', data);
+        
+        if (data.conversation_id) {
+          setConversationId(data.conversation_id);
+        } else {
+          setConversationId(undefined);
+        }
+      }
+    } catch (error) {
+      console.error('Error obteniendo chatId:', error);
+    }
+    
     setIsChatOpen(true);
   };
+
   const closeChat = () => {
     setIsChatOpen(false);
     setSelectedTeacher(null);
-    setMessage('');
-  };
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!message.trim() || !selectedTeacher) return;
-    const newMessage: ChatMessage = {
-      id: Date.now().toString(),
-      sender: user.name,
-      text: message,
-      time: new Date().toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit'
-      }),
-      isMe: true
-    };
-    setChatMessages((prev) => ({
-      ...prev,
-      [selectedTeacher.id]: [...(prev[selectedTeacher.id] || []), newMessage]
-    }));
-    setMessage('');
+    setConversationId(undefined);
   };
   const getLoadColor = (load: number, capacity: number) => {
     const percentage = load / capacity * 100;
@@ -390,7 +316,7 @@ export function CoordinatorDashboard({
                       <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => openChat(teacher)}
+                      onClick={() => openChatWithTeacher(teacher)}
                       leftIcon={<MessageSquare className="w-4 h-4" />}
                       className="text-primary border-primary/30 hover:bg-primary/5">
 
@@ -526,88 +452,6 @@ export function CoordinatorDashboard({
             </div>
           </div>
 
-          {/* Biblioteca Digital */}
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <BookCheck className="w-5 h-5 text-green-600" />
-                Biblioteca Digital
-              </h2>
-              <div className="flex items-center gap-2">
-                <Badge variant="success">{publishedProjects.length} Publicados</Badge>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={reloadProjectData}
-                  className="text-slate-600 border-slate-300"
-                >
-                  Recargar
-                </Button>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-              <div className="divide-y divide-slate-100">
-                {publishedProjects.length > 0 ? (
-                  publishedProjects.map((project) => (
-                    <div key={project.id} className="p-4 hover:bg-slate-50 transition-colors">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-3">
-                          <img 
-                            src="/src/config/logoUnexca.jpg" 
-                            alt="UNEXCA" 
-                            className="w-12 h-12 rounded-lg object-cover"
-                          />
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-slate-900 mb-1">
-                              {project.title}
-                            </h3>
-                            <div className="flex items-center gap-4 text-sm text-slate-500">
-                              <span>Estudiante: {project.studentName}</span>
-                              <span>Profesor: {project.teacherName}</span>
-                              <span>Publicado: {project.publishedDate}</span>
-                            </div>
-                            <div className="flex items-center gap-4 mt-2">
-                              <Badge variant="success">Calificación: {project.evaluation.grade}/20</Badge>
-                              <span className="text-xs text-slate-400">
-                                {project.evaluation.comments} comentarios
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 ml-4">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleViewProject(project)}
-                            className="text-slate-600 border-slate-300"
-                          >
-                            Ver Detalles
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="p-8 text-center">
-                    <div className="bg-green-50 p-4 rounded-full inline-block mb-4">
-                      <BookCheck className="w-8 h-8 text-green-600" />
-                    </div>
-                    <h3 className="text-lg font-medium text-slate-900 mb-2">
-                      No hay proyectos publicados
-                    </h3>
-                    <p className="text-sm text-slate-500 mb-4">
-                      Los proyectos aprobados por el coordinador aparecerán aquí
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      Los estudiantes y profesores pueden acceder a estos proyectos como referencia
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
           {/* Resumen de Estado */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <h3 className="font-semibold text-slate-900 mb-4">
@@ -632,117 +476,20 @@ export function CoordinatorDashboard({
       </div>
 
       {/* Modal de Chat con Docente */}
-      <Modal isOpen={isChatOpen} onClose={closeChat} title="" size="lg">
-        {selectedTeacher &&
-        <div className="flex flex-col h-[500px] -m-6">
-            {/* Header del Chat */}
-            <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Avatar fallback={selectedTeacher.name} size="md" />
-                  {selectedTeacher.lastActive === 'En línea' &&
-                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
-                }
-                </div>
-                <div>
-                  <h3 className="font-semibold text-slate-900">
-                    {selectedTeacher.name}
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    {selectedTeacher.career} • {selectedTeacher.email}
-                  </p>
-                  <span
-                  className={`text-xs ${selectedTeacher.lastActive === 'En línea' ? 'text-green-600' : 'text-slate-400'}`}>
-
-                    {selectedTeacher.lastActive}
-                  </span>
-                </div>
-              </div>
-              <div className="text-right">
-                <Badge
-                variant={
-                selectedTeacher.pendingEvaluations > 5 ?
-                'warning' :
-                'success'
-                }>
-
-                  {selectedTeacher.pendingEvaluations} pendientes
-                </Badge>
-                <p className="text-xs text-slate-500 mt-1">
-                  Carga: {selectedTeacher.load}/{selectedTeacher.capacity}
-                </p>
-              </div>
-            </div>
-
-            {/* Mensajes */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
-              {(chatMessages[selectedTeacher.id] || []).length === 0 ?
-            <div className="text-center py-8">
-                  <MessageSquare className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                  <p className="text-slate-500">No hay mensajes aún</p>
-                  <p className="text-sm text-slate-400">
-                    Inicia una conversación con {selectedTeacher.name}
-                  </p>
-                </div> :
-
-            (chatMessages[selectedTeacher.id] || []).map((msg) =>
-            <div
-              key={msg.id}
-              className={`flex ${msg.isMe ? 'justify-end' : 'justify-start'}`}>
-
-                    <div
-                className={`
-                        max-w-[75%] rounded-2xl px-4 py-2 text-sm shadow-sm
-                        ${msg.isMe ? 'bg-primary text-white rounded-br-none' : 'bg-white text-slate-800 border border-slate-200 rounded-bl-none'}
-                      `}>
-
-                      <p>{msg.text}</p>
-                      <p
-                  className={`text-[10px] mt-1 text-right ${msg.isMe ? 'text-primary-light/80' : 'text-slate-400'}`}>
-
-                        {msg.time}
-                      </p>
-                    </div>
-                  </div>
-            )
-            }
-            </div>
-
-            {/* Input del Chat */}
-            <div className="p-4 bg-white border-t border-slate-200">
-              <form
-              onSubmit={handleSendMessage}
-              className="flex items-center gap-2">
-
-                <button
-                type="button"
-                className="text-slate-400 hover:text-slate-600 p-2">
-
-                  <Paperclip className="w-5 h-5" />
-                </button>
-                <input
-                type="text"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Escribe un mensaje para hacer seguimiento..."
-                className="flex-1 bg-slate-100 border-0 rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:outline-none" />
-
-                <Button
-                type="submit"
-                size="sm"
-                className="rounded-full w-10 h-10 p-0 flex items-center justify-center"
-                disabled={!message.trim()}>
-
-                  <Send className="w-4 h-4" />
-                </Button>
-              </form>
-              <p className="text-xs text-slate-400 mt-2 text-center">
-                Use este chat para hacer seguimiento del proceso de evaluación
-              </p>
-            </div>
-          </div>
-        }
-      </Modal>
+      <ChatComponent
+        isOpen={isChatOpen}
+        onClose={closeChat}
+        currentUser={user}
+        otherUser={selectedTeacher ? {
+          id: selectedTeacher.id.toString(),
+          name: selectedTeacher.name,
+          role: 'teacher',
+          email: selectedTeacher.email,
+          lastActive: selectedTeacher.lastActive,
+          pendingEvaluations: selectedTeacher.pendingEvaluations
+        } : undefined}
+        conversationId={conversationId}
+      />
 
       {/* Modal de Detalles del Proyecto */}
       <Modal 

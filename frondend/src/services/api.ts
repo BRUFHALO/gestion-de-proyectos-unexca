@@ -2,7 +2,7 @@
  * Servicio de API para comunicación con el backend
  */
 
-const API_BASE_URL = 'http://localhost:8005';
+const API_BASE_URL = 'http://localhost:8000';
 //const API_BASE_URL = 'https://gestion-de-proyectos-unexca.onrender.com';
 
 export { API_BASE_URL };

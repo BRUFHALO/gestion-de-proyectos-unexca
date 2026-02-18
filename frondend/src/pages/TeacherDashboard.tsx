@@ -8,7 +8,8 @@ import {
   Filter,
   X,
   Eye,
-  MessageSquare } from
+  MessageSquare,
+  MessageCircle } from
 'lucide-react';
 import { projectsAPI, API_BASE_URL } from '../services/api';
 import { useToast } from '../components/ui/Toast';
@@ -36,6 +37,7 @@ export function TeacherDashboard({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSection, setSelectedSection] = useState('all');
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isCoordinatorChatOpen, setIsCoordinatorChatOpen] = useState(false);
   const [assignedProjects, setAssignedProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState<any>(null);
@@ -201,8 +203,8 @@ export function TeacherDashboard({
       user={user}
       title="Panel de Evaluación">
 
-      {/* Estadísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      {/* Estadísticas y Chat con Coordinador */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         {stats.map((stat) =>
         <Card key={stat.label} className="border-none shadow-sm">
             <CardContent className="flex items-center p-6">
@@ -220,6 +222,21 @@ export function TeacherDashboard({
             </CardContent>
           </Card>
         )}
+        <Card className="border-none shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => setIsCoordinatorChatOpen(true)}>
+          <CardContent className="flex items-center p-6">
+            <div className="p-4 rounded-full bg-blue-100 mr-4">
+              <MessageCircle className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-500">
+                Chat con Coordinador
+              </p>
+              <h3 className="text-2xl font-bold text-slate-900">
+                Comunicación
+              </h3>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Sección de Filtros */}
@@ -389,4 +406,12 @@ export function TeacherDashboard({
 
     </MainLayout>);
 
+  {/* Chat Panel para comunicación con el coordinador */}
+  <ChatPanel
+    userId={userData?._id || ''}
+    userName={userData?.name || ''}
+    userRole="teacher"
+    isOpen={isCoordinatorChatOpen}
+    onClose={() => setIsCoordinatorChatOpen(false)}
+  />
 }

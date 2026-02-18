@@ -170,7 +170,7 @@ app.add_middleware(
 
 
 
-    allow_origins=["*"],  # Frontend URLs
+    allow_origins=["http://localhost:5173", "http://localhost:5174"],  # Frontend URLs
 
 
 

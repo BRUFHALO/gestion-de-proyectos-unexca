@@ -561,66 +561,61 @@ async def get_projects(
 
 
     # Construir filtro
-
-
-
     filter_query = {}
 
-
-
     if status:
-
-
-
         filter_query["metadata.status"] = status
 
-
-
     if career_code:
-
-
-
         filter_query["academic_info.career_code"] = career_code
 
-
-
     if year:
-
-
-
         filter_query["academic_info.year"] = year
 
-
-
     if created_by:
-
-
-
         filter_query["created_by"] = ObjectId(created_by)
 
-
-
     if assigned_to:
+        # Intentar buscar como ObjectId y como string para compatibilidad
+        try:
+            assigned_to_objectid = ObjectId(assigned_to)
+            
+            # Aplicar filtros adicionales si existen
+            if status or career_code or year or created_by:
+                filter_query["evaluation.assigned_to"] = {"$in": [assigned_to_objectid, assigned_to]}
+            else:
+                # Sin filtros adicionales, buscar ambos tipos y combinar
+                cursor_oid = projects_collection.find({"evaluation.assigned_to": assigned_to_objectid})
+                projects_oid = await cursor_oid.to_list(length=None)
+                
+                cursor_str = projects_collection.find({"evaluation.assigned_to": assigned_to})
+                projects_str = await cursor_str.to_list(length=None)
+                
+                # Combinar y ordenar resultados
+                all_found = projects_oid + projects_str
+                all_found.sort(key=lambda x: x.get("created_at", datetime.utcnow()), reverse=True)
+                
+                # Aplicar paginación
+                projects = all_found[skip:skip+limit] if skip < len(all_found) else []
+                
+                # Saltar la consulta general ya que tenemos los resultados
+                skip = 0  # Para evitar doble paginación
+                limit = len(projects)  # Para no truncar más
+            
+        except:
+            # Si falla la conversión a ObjectId, buscar solo como string
+            if status or career_code or year or created_by:
+                filter_query["evaluation.assigned_to"] = assigned_to
+            else:
+                cursor = projects_collection.find({"evaluation.assigned_to": assigned_to}).skip(skip).limit(limit).sort("created_at", -1)
+                projects = await cursor.to_list(length=limit)
+                skip = 0
+                limit = len(projects)
 
-
-
-        filter_query["evaluation.assigned_to"] = ObjectId(assigned_to)
-
-
-
-    
-
-
-
-    # Consultar proyectos
-
-
-
-    cursor = projects_collection.find(filter_query).skip(skip).limit(limit).sort("created_at", -1)
-
-
-
-    projects = await cursor.to_list(length=limit)
+    # Consultar proyectos solo si no se hizo una consulta específica de assigned_to
+    if not assigned_to or (status or career_code or year or created_by):
+        cursor = projects_collection.find(filter_query).skip(skip).limit(limit).sort("created_at", -1)
+        projects = await cursor.to_list(length=limit)
 
 
 
@@ -948,6 +943,18 @@ async def get_project_versions(project_id: str):
 
 
 
+def convert_objectids(obj):
+    """Convertir recursivamente todos los ObjectIds a strings"""
+    if isinstance(obj, ObjectId):
+        return str(obj)
+    elif isinstance(obj, dict):
+        return {key: convert_objectids(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_objectids(item) for item in obj]
+    else:
+        return obj
+
+
 @router.get("/teacher/{teacher_id}/assigned")
 
 
@@ -988,38 +995,21 @@ async def get_teacher_assigned_projects(
 
 
 
-    filter_query = {"versions.evaluation.assigned_to": ObjectId(teacher_id)}
-
-
+    filter_query = {"evaluation.assigned_to": teacher_id}
 
     if status:
-
-
-
         filter_query["metadata.status"] = status
 
-
-
     
-
-
 
     cursor = projects_collection.find(filter_query).sort("created_at", -1)
 
-
-
     projects = await cursor.to_list(length=None)
 
+    # Convertir ObjectIds a strings
+    converted_projects = [convert_objectids(project) for project in projects]
 
-
-    
-
-
-
-    return projects
-
-
-
+    return converted_projects
 
 
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { API_BASE_URL } from '../services/api';
 import { notificationsService } from '../services/notifications';
-import { MessageSquare, Send, X, User, Clock, Check, CheckCheck } from 'lucide-react';
+import { MessageSquare, Send, X, User, Clock, Check, CheckCheck, MessageCircle } from 'lucide-react';
 import { Button } from './ui/Button';
 
 interface Message {
@@ -15,7 +15,7 @@ interface Message {
   message: string;
   timestamp: string;
   read: boolean;
-  delivered?: boolean; // Para indicar si fue entregado
+  delivered?: boolean;
 }
 
 interface Conversation {
@@ -40,7 +40,6 @@ interface ChatPanelProps {
   userRole: 'student' | 'teacher';
   isOpen: boolean;
   onClose: () => void;
-  // Información del otro usuario (para iniciar conversación)
   otherUserId?: string;
   otherUserName?: string;
   projectId?: string;
@@ -56,100 +55,6 @@ export function ChatPanel({ userId, userName, userRole, isOpen, onClose, otherUs
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const selectedConversationRef = useRef<Conversation | null>(null);
-
-  // Conectar WebSocket cuando se abre el panel
-  useEffect(() => {
-    if (isOpen && userId) {
-      loadConversations();
-      connectWebSocket();
-    }
-    
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-    };
-  }, [isOpen, userId]);
-
-  const connectWebSocket = () => {
-    try {
-      const ws = new WebSocket(`${API_BASE_URL.replace('http://', 'ws://').replace('https://', 'wss://')}/api/v1/chat/ws/${userId}`);
-      
-      ws.onopen = () => {
-        console.log('✅ WebSocket conectado');
-        // Enviar ping cada 30 segundos para mantener la conexión
-        const pingInterval = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send('ping');
-          }
-        }, 30000);
-        
-        // Guardar el interval para limpiarlo después
-        (ws as any).pingInterval = pingInterval;
-      };
-      
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          
-          if (data.type === 'new_message') {
-            console.log('📩 Nuevo mensaje recibido vía WebSocket:', data);
-            
-            // Actualizar lista de conversaciones siempre
-            loadConversations();
-            
-            // Si estamos en la conversación, actualizar mensajes
-            const currentConv = selectedConversationRef.current;
-            if (currentConv && data.conversation_id === currentConv.conversation_id) {
-              console.log('✅ Actualizando mensajes de la conversación activa');
-              loadMessages(currentConv.conversation_id);
-            }
-          } else if (data.type === 'pong') {
-            // Respuesta al ping (silencioso)
-          }
-        } catch (error) {
-          console.error('❌ Error procesando mensaje WebSocket:', error);
-        }
-      };
-      
-      ws.onerror = (error) => {
-        console.error('❌ Error en WebSocket:', error);
-      };
-      
-      ws.onclose = () => {
-        console.log('🔌 WebSocket desconectado');
-        if ((ws as any).pingInterval) {
-          clearInterval((ws as any).pingInterval);
-        }
-        // Intentar reconectar después de 3 segundos
-        if (isOpen) {
-          setTimeout(() => {
-            if (isOpen && !wsRef.current) {
-              connectWebSocket();
-            }
-          }, 3000);
-        }
-      };
-      
-      wsRef.current = ws;
-    } catch (error) {
-      console.error('Error conectando WebSocket:', error);
-    }
-  };
-
-  // Actualizar ref cuando cambia selectedConversation
-  useEffect(() => {
-    selectedConversationRef.current = selectedConversation;
-    if (selectedConversation) {
-      loadMessages(selectedConversation.conversation_id);
-      markAsRead(selectedConversation.conversation_id);
-    }
-  }, [selectedConversation]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -189,16 +94,15 @@ export function ChatPanel({ userId, userName, userRole, isOpen, onClose, otherUs
         `${API_BASE_URL}/api/v1/chat/mark-as-read/${conversationId}?user_role=${userRole}`,
         { method: 'PUT' }
       );
-      loadConversations(); // Actualizar contadores
+      loadConversations();
     } catch (error) {
-      console.error('Error marcando como leído:', error);
+      console.error('Error marcando mensajes como leídos:', error);
     }
   };
 
   const sendMessage = async () => {
     if (!newMessage.trim()) return;
 
-    // Verificar que tenemos la información necesaria
     const receiverId = selectedConversation 
       ? (userRole === 'student' ? selectedConversation.teacher_id : selectedConversation.student_id)
       : otherUserId;
@@ -234,25 +138,8 @@ export function ChatPanel({ userId, userName, userRole, isOpen, onClose, otherUs
         const data = await response.json();
         setNewMessage('');
         
-        // Enviar notificación al receptor
-        try {
-          const notification = notificationsService.createMessageNotification(
-            receiverId,
-            selectedConversation?.project_id || projectId || '',
-            selectedConversation?.project_title || projectTitle || 'Proyecto sin título',
-            userId,
-            userName
-          );
-          await notificationsService.sendNotification(notification);
-        } catch (error) {
-          console.error('Error sending notification:', error);
-          // No mostrar error al usuario para no interrumpir el flujo
-        }
-        
-        // Si era la primera conversación, recargar la lista
         if (!selectedConversation) {
           await loadConversations();
-          // Seleccionar la nueva conversación
           const conversationsResponse = await fetch(
             `${API_BASE_URL}/api/v1/chat/conversations/${userId}?role=${userRole}`
           );
@@ -291,6 +178,92 @@ export function ChatPanel({ userId, userName, userRole, isOpen, onClose, otherUs
     if (days < 7) return `${days}d`;
     return date.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
   };
+
+  useEffect(() => {
+    if (isOpen && userId) {
+      loadConversations();
+      connectWebSocket();
+    }
+    
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    };
+  }, [isOpen, userId]);
+
+  const connectWebSocket = () => {
+    try {
+      const ws = new WebSocket(`${API_BASE_URL.replace('http://', 'ws://').replace('https://', 'wss://')}/api/v1/chat/ws/${userId}`);
+      
+      ws.onopen = () => {
+        console.log('✅ WebSocket conectado');
+        const pingInterval = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send('ping');
+          }
+        }, 30000);
+        
+        (ws as any).pingInterval = pingInterval;
+      };
+      
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          if (data.type === 'new_message') {
+            console.log('📩 Nuevo mensaje recibido vía WebSocket:', data);
+            loadConversations();
+            
+            const currentConv = selectedConversationRef.current;
+            if (currentConv && data.conversation_id === currentConv.conversation_id) {
+              console.log('✅ Actualizando mensajes de la conversación activa');
+              loadMessages(currentConv.conversation_id);
+            }
+          } else if (data.type === 'pong') {
+            // Respuesta al ping (silencioso)
+          }
+        } catch (error) {
+          console.error('❌ Error procesando mensaje WebSocket:', error);
+        }
+      };
+      
+      ws.onerror = (error) => {
+        console.error('❌ Error en WebSocket:', error);
+      };
+      
+      ws.onclose = () => {
+        console.log('🔌 WebSocket desconectado');
+        if ((ws as any).pingInterval) {
+          clearInterval((ws as any).pingInterval);
+        }
+        if (isOpen) {
+          setTimeout(() => {
+            if (isOpen && !wsRef.current) {
+              connectWebSocket();
+            }
+          }, 3000);
+        }
+      };
+      
+      wsRef.current = ws;
+    } catch (error) {
+      console.error('Error conectando WebSocket:', error);
+    }
+  };
+
+  useEffect(() => {
+    selectedConversationRef.current = selectedConversation;
+    if (selectedConversation) {
+      loadMessages(selectedConversation.conversation_id);
+      markAsRead(selectedConversation.conversation_id);
+    }
+  }, [selectedConversation]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   if (!isOpen) return null;
 
@@ -371,56 +344,56 @@ export function ChatPanel({ userId, userName, userRole, isOpen, onClose, otherUs
       ) : !selectedConversation ? (
         <div className="flex-1 overflow-y-auto">
           <div className="divide-y divide-slate-100">
-              {conversations.map((conv) => {
-                const unreadCount = userRole === 'student' 
-                  ? conv.unread_count_student 
-                  : conv.unread_count_teacher;
-                const otherPersonName = userRole === 'student'
-                  ? conv.teacher_name
-                  : conv.student_name;
+            {conversations.map((conv) => {
+              const unreadCount = userRole === 'student' 
+                ? conv.unread_count_student 
+                : conv.unread_count_teacher;
+              const otherPersonName = userRole === 'student'
+                ? conv.teacher_name
+                : conv.student_name;
 
-                return (
-                  <div
-                    key={conv.conversation_id}
-                    onClick={() => setSelectedConversation(conv)}
-                    className="p-4 hover:bg-slate-50 cursor-pointer transition-colors"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <User className="w-6 h-6 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <h3 className="font-semibold text-slate-900 truncate">
-                            {otherPersonName}
-                          </h3>
-                          {conv.last_message_time && (
-                            <span className="text-xs text-slate-400 flex-shrink-0 ml-2">
-                              {formatTime(conv.last_message_time)}
-                            </span>
-                          )}
-                        </div>
-                        {conv.project_title && (
-                          <p className="text-xs text-slate-500 mb-1 truncate">
-                            📄 {conv.project_title}
-                          </p>
+              return (
+                <div
+                  key={conv.conversation_id}
+                  onClick={() => setSelectedConversation(conv)}
+                  className="p-4 hover:bg-slate-50 cursor-pointer transition-colors"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <User className="w-6 h-6 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-semibold text-slate-900 truncate">
+                          {otherPersonName}
+                        </h3>
+                        {conv.last_message_time && (
+                          <span className="text-xs text-slate-400 flex-shrink-0 ml-2">
+                            {formatTime(conv.last_message_time)}
+                          </span>
                         )}
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-slate-600 truncate">
-                            {conv.last_message || 'Sin mensajes'}
-                          </p>
-                          {unreadCount > 0 && (
-                            <span className="bg-primary text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0 ml-2">
-                              {unreadCount}
-                            </span>
-                          )}
-                        </div>
+                      </div>
+                      {conv.project_title && (
+                        <p className="text-xs text-slate-500 mb-1 truncate">
+                          📄 {conv.project_title}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-slate-600 truncate">
+                          {conv.last_message || 'Sin mensajes'}
+                        </p>
+                        {unreadCount > 0 && (
+                          <span className="bg-primary text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0 ml-2">
+                            {unreadCount}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       ) : (
         <>
@@ -475,7 +448,6 @@ export function ChatPanel({ userId, userName, userRole, isOpen, onClose, otherUs
                     }`}>
                       {isOwnMessage ? (
                         <>
-                          {/* Para mensajes propios: mostrar timestamp + indicador de estado */}
                           <span className="text-xs opacity-70">
                             {formatTime(msg.timestamp)}
                           </span>
@@ -489,7 +461,6 @@ export function ChatPanel({ userId, userName, userRole, isOpen, onClose, otherUs
                         </>
                       ) : (
                         <>
-                          {/* Para mensajes de otros: solo mostrar timestamp */}
                           <Clock className="w-3 h-3 opacity-70" />
                           <span className="text-xs opacity-70">
                             {formatTime(msg.timestamp)}

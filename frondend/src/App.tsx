@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { LoginPageCedula } from './pages/LoginPageCedula';
 import { PublicLibrary } from './pages/PublicLibrary';
+import { ApprovedProjects } from './pages/ApprovedProjects';
 import { StudentDashboard } from './pages/StudentDashboard';
 import { TeacherDashboard } from './pages/TeacherDashboard';
 import { TeacherCoordinatorChat } from './pages/TeacherCoordinatorChat';
 import { CoordinatorDashboard } from './pages/CoordinatorDashboard';
 import { CoordinatorReports } from './pages/CoordinatorReports';
+import { UserManagement } from './pages/UserManagement';
+import { TeacherAssignments } from './pages/TeacherAssignments';
 import { EvaluationCanvas } from './pages/EvaluationCanvas';
 import { StudentFeedbackView } from './pages/StudentFeedbackView';
 import { ProjectDetailView } from './pages/ProjectDetailView';
@@ -14,13 +17,14 @@ import { StudentPDFViewer } from './components/StudentPDFViewer';
 type Role = 'student' | 'teacher' | 'coordinator';
 export function App() {
   const [user, setUser] = useState<{
+    id: string;
     name: string;
     email: string;
     role: Role;
   } | null>(null);
   // La biblioteca es la página inicial por defecto (acceso público)
   const [currentPage, setCurrentPage] = useState<string>('library');
-  const [selectedProjectId, setSelectedProjectId] = useState<string | number | null>(
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
     null
   );
 
@@ -33,6 +37,7 @@ export function App() {
       try {
         const userData = JSON.parse(storedUser);
         setUser({
+          id: userData.id || userData._id || 'user-' + Date.now(),
           name: userData.name,
           email: userData.email,
           role: userData.role
@@ -55,14 +60,15 @@ export function App() {
   const handleLogin = (role: Role, userData: any) => {
     // Usar datos reales del usuario autenticado desde la API
     setUser({
+      id: userData.id || userData._id || 'user-' + Date.now(),
       name: userData.name,
       email: userData.email,
       role: userData.role
     });
     // Redirigir al dashboard correspondiente
-    if (role === 'student') setCurrentPage('student-dashboard');else
-    if (role === 'teacher') setCurrentPage('teacher-dashboard');else
-    if (role === 'coordinator') setCurrentPage('coordinator-dashboard');
+    if (role === 'student') setCurrentPage('student-dashboard');
+    else if (role === 'teacher') setCurrentPage('teacher-dashboard');
+    else if (role === 'coordinator') setCurrentPage('coordinator-dashboard');
   };
   const handleLogout = () => {
     // Limpiar localStorage
@@ -129,7 +135,7 @@ export function App() {
       case 'student-feedback':
         return (
           <StudentFeedbackView
-            projectId={selectedProjectId || 1}
+            projectId={selectedProjectId || '1'}
             onBack={() => setCurrentPage('student-dashboard')} />);
 
       
@@ -177,6 +183,14 @@ export function App() {
             onLogout={handleLogout}
             onNavigate={handleNavigate} />);
 
+      
+      case 'approved-projects':
+        return (
+          <ApprovedProjects
+            user={user}
+            onLogout={handleLogout}
+            onNavigate={handleNavigate} />);
+
 
       case 'coordinator-reports':
         return (
@@ -185,7 +199,13 @@ export function App() {
             onLogout={handleLogout}
             onNavigate={handleNavigate} />);
 
+      
+      case 'user-management':
+        return <UserManagement user={user} onLogout={handleLogout} onNavigate={handleNavigate} />;
+      case 'teacher-assignments':
+          return <TeacherAssignments user={user} onLogout={handleLogout} onNavigate={handleNavigate} />;
 
+      
       case 'evaluation-canvas':
         return (
           <EvaluationCanvas

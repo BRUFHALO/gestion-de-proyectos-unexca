@@ -4,12 +4,14 @@ import {
   BookOpen,
   Users,
   FileCheck,
-  LogOut,
-  Menu,
-  GraduationCap,
+  FileText,
   MessageSquare,
-  FileText } from
-'lucide-react';
+  UserCog,
+  UserCheck,
+  GraduationCap,
+  Menu,
+  LogOut
+} from 'lucide-react';
 import { Avatar } from '../ui/Avatar';
 interface SidebarProps {
   role: 'student' | 'teacher' | 'coordinator';
@@ -66,6 +68,21 @@ export function Sidebar({
         id: 'coordinator-dashboard',
         label: 'Gestión',
         icon: <Users className="w-5 h-5" />
+      },
+      {
+        id: 'teacher-assignments',
+        label: 'Asignación de Profesores',
+        icon: <UserCheck className="w-5 h-5" />
+      },
+      {
+        id: 'user-management',
+        label: 'Gestión de Usuarios',
+        icon: <UserCog className="w-5 h-5" />
+      },
+      {
+        id: 'approved-projects',
+        label: 'Proyectos Publicados',
+        icon: <FileCheck className="w-5 h-5" />
       },
       {
         id: 'coordinator-reports',
