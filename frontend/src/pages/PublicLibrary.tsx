@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Component } from 'react';
+import React, { useState, Component, useEffect } from 'react';
 import {
   Search,
   Filter,
@@ -6,7 +6,9 @@ import {
   GraduationCap,
   LogIn,
   Menu,
-  X } from
+  X,
+  Loader2
+} from
 'lucide-react';
 import { ProjectCard } from '../components/features/ProjectCard';
 import { Input } from '../components/ui/Input';
@@ -15,7 +17,7 @@ import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { MainLayout } from '../components/layout/MainLayout';
-import { projectsAPI, careersAPI, Project, Career } from '../services/api';
+import { projectsAPI, API_BASE_URL } from '../services/api';
 interface PublicLibraryProps {
   user: any;
   onLogout: () => void;
@@ -33,48 +35,110 @@ export function PublicLibrary({
   const [selectedProject, setSelectedProject] = useState<any>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
-  const [careers, setCareers] = useState<Career[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Cargar datos de la base de datos
+  // Cargar proyectos publicados desde el backend
   useEffect(() => {
-    const loadData = async () => {
+    const fetchPublishedProjects = async () => {
       try {
-        // Cargar proyectos publicados
-        const projectsData = await projectsAPI.getAll({ status: 'published' });
+        setLoading(true);
+        const response = await fetch(`${API_BASE_URL}/api/v1/coordinator/published`);
         
-        // Cargar carreras activas
-        const careersData = await careersAPI.getAll(true);
+        if (!response.ok) {
+          throw new Error('Error al cargar los proyectos');
+        }
         
-        // Transformar datos de proyectos al formato que necesita el componente
-        const transformedProjects = projectsData.map(project => ({
-          id: project._id,
-          title: project.title,
-          authors: project.authors.map(author => author.name),
-          career: project.academic_info.career_name,
-          year: project.academic_info.year.toString(),
-          methodology: project.academic_info.methodology,
-          abstract: project.description,
-          methods: project.academic_info.keywords,
-          thumbnail: `https://images.unsplash.com/photo-${Math.random().toString(36).substring(7)}?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80`
-        }));
+        const data = await response.json();
         
-        setProjects(transformedProjects);
-        setCareers(careersData);
-      } catch (error) {
-        console.error('Error loading data:', error);
+        if (data.success) {
+          // Mapeo de nombres de carrera del backend al estándar
+          const careerMapping: { [key: string]: string } = {
+            'ingenieria agroalimentaria': 'Ingeniería Agroalimentaria',
+            'administracion': 'Administracion de Empresas',
+            'informatica': 'Ingeniería en Informática',
+            'turismo': 'Turismo',
+            'distribucion': 'Distribucion y Logistica'
+          };
+
+          // Transformar los datos al formato esperado por el componente
+          const transformedProjects = data.projects.map((project: any) => {
+            console.log('Datos del proyecto:', project);
+            console.log('Career original:', project.career);
+            console.log('Career mapeada:', careerMapping[project.career.toLowerCase()]);
+            
+            return {
+              id: project.id,
+              title: project.title,
+              authors: [project.studentName],
+              career: careerMapping[project.career.toLowerCase()] || project.career,
+              year: new Date().getFullYear().toString(),
+              methodology: project.methodology || 'No especificada',
+              abstract: project.description || 'Sin descripción disponible',
+              methods: [], // Este dato podría venir del backend
+              thumbnail: '/src/config/logoUnexca.jpg',
+              file_id: project.file_id
+            };
+          });
+          
+          setProjects(transformedProjects);
+        } else {
+          setError('No se pudieron cargar los proyectos');
+        }
+      } catch (err) {
+        console.error('Error fetching published projects:', err);
+        setError('Error al conectar con el servidor');
       } finally {
         setLoading(false);
       }
     };
 
-    loadData();
-  }, []);
+    fetchPublishedProjects();
+  }, []); // Se ejecuta solo al montar el componente
+
+  // Función para descargar el PDF de un proyecto
+  const handleDownloadPDF = async (projectId: string, file_id: string | null, title: string) => {
+    if (!file_id) {
+      alert('No hay archivo disponible para descargar');
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:8000/api/v1/projects/download/${file_id}`);
+      
+      if (!response.ok) {
+        throw new Error('Error al descargar el archivo');
+      }
+
+      // Crear un blob desde la respuesta
+      const blob = await response.blob();
+      
+      // Crear una URL temporal para el blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Crear un elemento <a> temporal para la descarga
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`;
+      
+      // Simular clic en el elemento
+      document.body.appendChild(a);
+      a.click();
+      
+      // Limpiar
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+    } catch (error) {
+      console.error('Error descargando PDF:', error);
+      alert('Error al descargar el PDF. Por favor, inténtalo de nuevo.');
+    }
+  };
 
   const filteredProjects = projects.filter((p) => {
     const matchesSearch =
     p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.authors.some((a) => a.toLowerCase().includes(searchQuery.toLowerCase()));
+    p.authors.some((a: string) => a.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesCareer =
     selectedCareer === 'all' || p.career === selectedCareer;
     return matchesSearch && matchesCareer;
@@ -97,7 +161,10 @@ export function PublicLibrary({
           setSelectedCareer={setSelectedCareer}
           filteredProjects={filteredProjects}
           selectedProject={selectedProject}
-          setSelectedProject={setSelectedProject}\n          loading={loading}\n          careers={careers} />
+          setSelectedProject={setSelectedProject}
+          loading={loading}
+          error={error}
+          onDownloadPDF={handleDownloadPDF} />
 
       </MainLayout>);
 
@@ -202,7 +269,10 @@ export function PublicLibrary({
           setSelectedCareer={setSelectedCareer}
           filteredProjects={filteredProjects}
           selectedProject={selectedProject}
-          setSelectedProject={setSelectedProject}\n          loading={loading}\n          careers={careers} />
+          setSelectedProject={setSelectedProject}
+          loading={loading}
+          error={error}
+          onDownloadPDF={handleDownloadPDF} />
 
       </main>
 
@@ -234,7 +304,8 @@ function LibraryContent({
   selectedProject,
   setSelectedProject,
   loading,
-  careers
+  error,
+  onDownloadPDF
 }: {
   searchQuery: string;
   setSearchQuery: (q: string) => void;
@@ -243,29 +314,10 @@ function LibraryContent({
   filteredProjects: any[];
   selectedProject: any;
   setSelectedProject: (p: any) => void;
-  loading: boolean;
-  careers: Career[];
+  loading?: boolean;
+  error?: string | null;
+  onDownloadPDF?: (projectId: string, file_id: string | null, title: string) => Promise<void>;
 }) {
-  // Generar opciones del select dinámicamente desde la base de datos
-  const careerOptions = [
-    { value: 'all', label: 'Todas las Carreras' },
-    ...careers.map(career => ({
-      value: career.name,
-      label: career.name
-    }))
-  ];
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-slate-600">Cargando proyectos...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
       {/* Sección de Filtros */}
@@ -281,7 +333,32 @@ function LibraryContent({
           </div>
           <div className="md:col-span-4">
             <Select
-              options={careerOptions}
+              options={[
+              {
+                value: 'all',
+                label: 'Todas las Carreras'
+              },
+              {
+                value: 'Turismo',
+                label: 'Turismo'
+              },
+              {
+                value: 'Ingeniería Agroalimentaria',
+                label: 'Ingeniería Agroalimentaria'
+              },
+              {
+                value: 'Ingeniería en Informática',
+                label: 'Ingeniería en Informática'
+              },
+              {
+                value: 'Administracion de Empresas',
+                label: 'Administracion de Empresas'
+              },
+              {
+                value: 'Distribucion y Logistica',
+                label: 'Distribucion y Logistica'
+              }]
+              }
               value={selectedCareer}
               onChange={(e) => setSelectedCareer(e.target.value)} />
 
@@ -300,19 +377,48 @@ function LibraryContent({
         </p>
       </div>
 
+      {/* Estado de carga */}
+      {loading && (
+        <div className="flex justify-center items-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <span className="ml-2 text-slate-600">Cargando proyectos...</span>
+        </div>
+      )}
+
+      {/* Estado de error */}
+      {error && (
+        <div className="text-center py-20">
+          <div className="bg-red-50 p-4 rounded-full inline-block mb-4">
+            <X className="w-8 h-8 text-red-500" />
+          </div>
+          <h3 className="text-lg font-medium text-slate-900 mb-2">
+            Error al cargar proyectos
+          </h3>
+          <p className="text-slate-500 mb-4">{error}</p>
+          <Button 
+            onClick={() => window.location.reload()}
+            variant="outline"
+          >
+            Reintentar
+          </Button>
+        </div>
+      )}
+
       {/* Grid de Proyectos */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredProjects.map((project) =>
-        <ProjectCard
-          key={project.id}
-          {...project}
-          onView={() => setSelectedProject(project)}
-          onDownload={() => alert(`Descargando ${project.title}...`)} />
+      {!loading && !error && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredProjects.map((project) =>
+          <ProjectCard
+            key={project.id}
+            {...project}
+            onView={() => setSelectedProject(project)}
+            onDownload={() => alert(`Descargando ${project.title}...`)} />
 
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
-      {filteredProjects.length === 0 &&
+      {!loading && !error && filteredProjects.length === 0 &&
       <div className="text-center py-20">
           <div className="bg-slate-100 p-4 rounded-full inline-block mb-4">
             <Search className="w-8 h-8 text-slate-400" />
@@ -395,7 +501,7 @@ function LibraryContent({
 
             <div className="flex justify-end pt-6 border-t border-slate-100">
               <Button
-              onClick={() => alert('Descargando PDF...')}
+              onClick={() => onDownloadPDF?.(selectedProject.id, selectedProject.file_id, selectedProject.title)}
               leftIcon={<Download className="w-4 h-4" />}>
 
                 Descargar PDF Completo
@@ -407,4 +513,3 @@ function LibraryContent({
     </>);
 
 }
-
