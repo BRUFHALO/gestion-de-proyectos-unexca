@@ -57,10 +57,10 @@ export function Sidebar({
         icon: <FileCheck className="w-5 h-5" />
       },
       {
-        id: 'teacher-coordinator-chat',
-        label: 'Chat con Coordinador',
+        id: 'simple-teacher-chat',
+        label: 'Chat',
         icon: <MessageSquare className="w-5 h-5" />,
-        badge: 2 // Mensajes no leídos
+        badge: 0 // Mensajes no leídos
       }],
 
       coordinator: [
@@ -68,6 +68,12 @@ export function Sidebar({
         id: 'coordinator-dashboard',
         label: 'Gestión',
         icon: <Users className="w-5 h-5" />
+      },
+      {
+        id: 'simple-coordinator-chat',
+        label: 'Chat',
+        icon: <MessageSquare className="w-5 h-5" />,
+        badge: 0 // Mensajes no leídos
       },
       {
         id: 'teacher-assignments',

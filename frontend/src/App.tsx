@@ -14,6 +14,8 @@ import { StudentFeedbackView } from './pages/StudentFeedbackView';
 import { ProjectDetailView } from './pages/ProjectDetailView';
 import { TeacherFeedbackPanel } from './pages/TeacherFeedbackPanel';
 import { StudentPDFViewer } from './components/StudentPDFViewer';
+import { SimpleTeacherChat } from './pages/SimpleTeacherChat';
+import { SimpleCoordinatorChat } from './pages/SimpleCoordinatorChat';
 type Role = 'student' | 'teacher' | 'coordinator';
 export function App() {
   const [user, setUser] = useState<{
@@ -171,6 +173,20 @@ export function App() {
       case 'teacher-coordinator-chat':
         return (
           <TeacherCoordinatorChat
+            user={user}
+            onLogout={handleLogout}
+            onNavigate={handleNavigate} />);
+
+      case 'simple-teacher-chat':
+        return (
+          <SimpleTeacherChat
+            user={user}
+            onLogout={handleLogout}
+            onNavigate={handleNavigate} />);
+
+      case 'simple-coordinator-chat':
+        return (
+          <SimpleCoordinatorChat
             user={user}
             onLogout={handleLogout}
             onNavigate={handleNavigate} />);

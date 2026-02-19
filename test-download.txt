@@ -1,0 +1,5 @@
+Este es un documento de prueba para el chat simple.
+Contenido de ejemplo para verificar la funcionalidad de descarga.
+Creado el: 19/02/2026
+
+Este archivo debe poder descargarse correctamente desde el chat.

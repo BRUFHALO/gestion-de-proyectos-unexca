@@ -25,12 +25,17 @@ class ConnectionManager:
             print(f"❌ Usuario {user_id} desconectado del WebSocket")
     
     async def send_personal_message(self, message: dict, user_id: str):
+        print(f"🔍 Intentando enviar mensaje a usuario {user_id}")
+        print(f"🔍 Conexiones activas: {list(self.active_connections.keys())}")
         if user_id in self.active_connections:
             try:
                 await self.active_connections[user_id].send_json(message)
+                print(f"✅ Mensaje enviado exitosamente a {user_id}")
             except Exception as e:
-                print(f"Error enviando mensaje a {user_id}: {e}")
+                print(f"❌ Error enviando mensaje a {user_id}: {e}")
                 self.disconnect(user_id)
+        else:
+            print(f"⚠️ Usuario {user_id} no está conectado al WebSocket")
     
     async def broadcast(self, message: dict):
         disconnected = []
@@ -226,6 +231,9 @@ async def send_message_by_chat_id(request: dict):
         await messages_collection.insert_one(message_data)
         
         # Notificar al receptor via WebSocket
+        print(f"🔍 Preparando notificación WebSocket para receptor: {receiver_id}")
+        print(f"🔍 Sender role: {sender_role}, Receiver ID: {receiver_id}")
+        
         message_for_ws = {
             "message_id": message_id,
             "conversation_id": conversation["conversation_id"],
@@ -246,6 +254,7 @@ async def send_message_by_chat_id(request: dict):
             "message": message_for_ws
         }
         
+        print(f"🔍 Enviando notificación WebSocket a {receiver_id}")
         await manager.send_personal_message(notification, receiver_id)
         
         return {

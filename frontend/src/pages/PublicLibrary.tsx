@@ -104,7 +104,7 @@ export function PublicLibrary({
     }
 
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/projects/download/${file_id}`);
+      const response = await fetch(`${API_BASE_URL}/api/v1/projects/download/${file_id}`);
       
       if (!response.ok) {
         throw new Error('Error al descargar el archivo');
@@ -412,7 +412,7 @@ function LibraryContent({
             key={project.id}
             {...project}
             onView={() => setSelectedProject(project)}
-            onDownload={() => alert(`Descargando ${project.title}...`)} />
+            onDownload={() => onDownloadPDF && onDownloadPDF(project.id, project.file_id, project.title)} />
 
           )}
         </div>

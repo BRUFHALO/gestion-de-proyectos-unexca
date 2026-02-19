@@ -15,7 +15,7 @@ import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
-import { ChatComponent } from '../components/chat/ChatComponent';
+import { SimpleTeacherCoordinatorChat } from '../components/chat/SimpleTeacherCoordinatorChat';
 
 const API_BASE_URL = 'http://localhost:8000';
 interface CoordinatorDashboardProps {
@@ -24,7 +24,7 @@ interface CoordinatorDashboardProps {
   onNavigate: (page: string) => void;
 }
 interface Teacher {
-  id: number;
+  id: string;
   name: string;
   load: number;
   capacity: number;
@@ -56,9 +56,6 @@ export function CoordinatorDashboard({
   onLogout,
   onNavigate
 }: CoordinatorDashboardProps) {
-  const [selectedTeacher, setSelectedTeacher] = useState<any>(null);
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [conversationId, setConversationId] = useState<string | undefined>(undefined);
   const [teacherSearchQuery, setTeacherSearchQuery] = useState('');
   const [approvedProjects, setApprovedProjects] = useState<ApprovedProject[]>([]);
   const [selectedProject, setSelectedProject] = useState<ApprovedProject | null>(null);
@@ -77,6 +74,8 @@ export function CoordinatorDashboard({
     last_updated: string;
   } | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
+  const [sidebarChatTeacher, setSidebarChatTeacher] = useState<Teacher | null>(null);
+  const [showSidebarChat, setShowSidebarChat] = useState(false);
 
   // Cargar profesores// Función para cargar profesores con estadísticas reales
   const loadTeachers = async () => {
@@ -182,35 +181,12 @@ export function CoordinatorDashboard({
     console.log('Estado actual - publishedProjects:', publishedProjects);
   }, [approvedProjects, publishedProjects]);
 
-  // Función para abrir chat y cargar conversación
-  const openChatWithTeacher = async (teacher: Teacher) => {
-    setSelectedTeacher(teacher);
-    
-    // Obtener chatId del profesor
-    try {
-      const response = await fetch(`http://localhost:8000/api/v1/chat/chat-id/${teacher.id}`);
-      if (response.ok) {
-        const data = await response.json();
-        console.log('ChatId del profesor:', data);
-        
-        if (data.conversation_id) {
-          setConversationId(data.conversation_id);
-        } else {
-          setConversationId(undefined);
-        }
-      }
-    } catch (error) {
-      console.error('Error obteniendo chatId:', error);
-    }
-    
-    setIsChatOpen(true);
+  // Función para abrir chat en el panel lateral
+  const openSidebarChat = (teacher: Teacher) => {
+    setSidebarChatTeacher(teacher);
+    setShowSidebarChat(true);
   };
 
-  const closeChat = () => {
-    setIsChatOpen(false);
-    setSelectedTeacher(null);
-    setConversationId(undefined);
-  };
   const getLoadColor = (load: number, capacity: number) => {
     const percentage = load / capacity * 100;
     if (percentage >= 90) return 'bg-red-500';
@@ -287,321 +263,367 @@ export function CoordinatorDashboard({
       user={user}
       title="Panel de Gestión">
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Asignaciones de Docentes */}
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Users className="w-5 h-5 text-primary" />
-              Docentes Asignados
-            </h2>
-            <Button variant="outline" size="sm">
-              Gestionar Todo
-            </Button>
-          </div>
-
-          {/* Filtro de Búsqueda de Docentes */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Filter className="w-4 h-4 text-primary" />
-              <h3 className="text-sm font-semibold text-slate-900">Buscar Docente</h3>
-            </div>
-            <Input
-              placeholder="Buscar por nombre, carrera o email..."
-              icon={<Search className="w-5 h-5" />}
-              value={teacherSearchQuery}
-              onChange={(e) => setTeacherSearchQuery(e.target.value)}
-            />
-            {teacherSearchQuery && (
-              <div className="mt-2 flex items-center justify-between">
-                <p className="text-xs text-slate-600">
-                  Mostrando <span className="font-semibold">{filteredTeachers.length}</span> de {teachers.length} docentes
-                </p>
-                <button
-                  onClick={() => setTeacherSearchQuery('')}
-                  className="text-xs text-primary hover:text-primary-dark flex items-center gap-1"
-                >
-                  <X className="w-3 h-3" />
-                  Limpiar
-                </button>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Panel Principal - Contenido principal */}
+        <div className="lg:col-span-2 space-y-8">
+          <div className="grid grid-cols-1 gap-8">
+            {/* Asignaciones de Docentes */}
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-primary" />
+                  Docentes Asignados
+                </h2>
+                <Button variant="outline" size="sm">
+                  Gestionar Todo
+                </Button>
               </div>
-            )}
-          </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            {/* Estado de carga de profesores */}
-            {loadingTeachers && (
-              <div className="p-8 text-center">
-                <div className="inline-flex items-center gap-2 text-primary">
-                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-sm">Cargando estadísticas de profesores...</span>
+              {/* Filtro de Búsqueda de Docentes */}
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Filter className="w-4 h-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-slate-900">Buscar Docente</h3>
                 </div>
+                <Input
+                  placeholder="Buscar por nombre, carrera o email..."
+                  icon={<Search className="w-5 h-5" />}
+                  value={teacherSearchQuery}
+                  onChange={(e) => setTeacherSearchQuery(e.target.value)}
+                />
+                {teacherSearchQuery && (
+                  <div className="mt-2 flex items-center justify-between">
+                    <p className="text-xs text-slate-600">
+                      Mostrando <span className="font-semibold">{filteredTeachers.length}</span> de {teachers.length} docentes
+                    </p>
+                    <button
+                      onClick={() => setTeacherSearchQuery('')}
+                      className="text-xs text-primary hover:text-primary-dark flex items-center gap-1"
+                    >
+                      <X className="w-3 h-3" />
+                      Limpiar
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
-            
-            {/* Lista de profesores */}
-            {!loadingTeachers && (
-              <div className="divide-y divide-slate-100">
-                {filteredTeachers.length > 0 ? (
-                  filteredTeachers.map((teacher) =>
-              <div
-                key={teacher.id}
-                className="p-4 hover:bg-slate-50 transition-colors">
 
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <Avatar fallback={teacher.name} size="md" />
-                        {teacher.lastActive === 'En línea' &&
-                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
-                      }
-                      </div>
-                      <div>
-                        <p className="font-medium text-slate-900">
-                          {teacher.name}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {teacher.career}
-                        </p>
-                        <p className="text-xs text-slate-400">
-                          {teacher.lastActive}
-                        </p>
-                        {teacher.department && (
-                          <p className="text-xs text-slate-400">
-                            {teacher.department}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openChatWithTeacher(teacher)}
-                      leftIcon={<MessageSquare className="w-4 h-4" />}
-                      className="text-primary border-primary/30 hover:bg-primary/5">
-
-                        Chat
-                      </Button>
-                      <button className="text-slate-400 hover:text-slate-600 p-1">
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                {/* Estado de carga de profesores */}
+                {loadingTeachers && (
+                  <div className="p-8 text-center">
+                    <div className="inline-flex items-center gap-2 text-primary">
+                      <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-sm">Cargando estadísticas de profesores...</span>
                     </div>
                   </div>
+                )}
+                
+                {/* Lista de profesores */}
+                {!loadingTeachers && (
+                  <div className="divide-y divide-slate-100">
+                    {filteredTeachers.length > 0 ? (
+                      filteredTeachers.map((teacher) =>
+                    <div
+                      key={teacher.id}
+                      className="p-4 hover:bg-slate-50 transition-colors">
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs font-medium text-slate-500 mb-1">
-                        Carga de Trabajo
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                          <div
-                          className={`h-full rounded-full transition-all ${getLoadColor(teacher.load, teacher.capacity)}`}
-                          style={{
-                            width: `${teacher.load / teacher.capacity * 100}%`
-                          }} />
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <Avatar fallback={teacher.name} size="md" />
+                            {teacher.lastActive === 'En línea' &&
+                          <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+                          }
+                          </div>
+                          <div>
+                            <p className="font-medium text-slate-900">
+                              {teacher.name}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {teacher.career}
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              {teacher.lastActive}
+                            </p>
+                            {teacher.department && (
+                              <p className="text-xs text-slate-400">
+                                {teacher.department}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <span
-                        className={`text-xs font-semibold ${getLoadTextColor(teacher.load, teacher.capacity)}`}>
-                          {teacher.load}/{teacher.capacity}
+                        <div className="flex items-center gap-2">
+                          <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openSidebarChat(teacher)}
+                          leftIcon={<MessageSquare className="w-4 h-4" />}
+                          className="text-primary border-primary/30 hover:bg-primary/5">
+
+                            Chat Rápido
+                          </Button>
+                          <button className="text-slate-400 hover:text-slate-600 p-1">
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs font-medium text-slate-500 mb-1">
+                            Carga de Trabajo
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                              className={`h-full rounded-full transition-all ${getLoadColor(teacher.load, teacher.capacity)}`}
+                              style={{
+                                width: `${teacher.load / teacher.capacity * 100}%`
+                              }} />
+                            </div>
+                            <span
+                            className={`text-xs font-semibold ${getLoadTextColor(teacher.load, teacher.capacity)}`}>
+                              {teacher.load}/{teacher.capacity}
+                            </span>
+                          </div>
+                          {teacher.loadPercentage && (
+                            <p className="text-xs text-slate-400 mt-1">
+                              {teacher.loadPercentage}% de capacidad
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-slate-500 mb-1">
+                            Evaluaciones
+                          </p>
+                          <div className="space-y-1">
+                            <Badge
+                            variant={
+                            teacher.pendingEvaluations > 5 ? 'warning' : 'success'
+                            }>
+                              {teacher.pendingEvaluations} pendientes
+                            </Badge>
+                            {teacher.completedEvaluations !== undefined && (
+                              <p className="text-xs text-slate-400">
+                                {teacher.completedEvaluations} completadas
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                  ) : (
+                    <div className="p-8 text-center">
+                      <div className="bg-slate-100 p-4 rounded-full inline-block mb-4">
+                        <Search className="w-8 h-8 text-slate-400" />
+                      </div>
+                      <h3 className="text-lg font-medium text-slate-900 mb-2">
+                        No se encontraron docentes
+                      </h3>
+                      <p className="text-slate-500 mb-4">
+                        No hay docentes que coincidan con tu búsqueda.
+                      </p>
+                      <Button variant="outline" onClick={() => setTeacherSearchQuery('')}>
+                        Limpiar búsqueda
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                )}
+              </div>
+            </div>
+
+            {/* Proyectos Aprobados por Profesores */}
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <BookCheck className="w-5 h-5 text-primary" />
+                  Proyectos Aprobados por Profesores
+                </h2>
+                <Badge variant="info">{approvedProjects.length} Pendientes</Badge>
+              </div>
+
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="divide-y divide-slate-100">
+                  {approvedProjects.length > 0 ? (
+                    approvedProjects.map((project) => (
+                      <div key={project.id} className="p-4 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-slate-900 mb-1">
+                              {project.title}
+                            </h3>
+                            <div className="flex items-center gap-4 text-sm text-slate-500">
+                              <span>Aprobado: {project.approvedDate}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 ml-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleViewProject(project)}
+                              className="text-slate-600 border-slate-300"
+                            >
+                              Ver Detalles
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRejectProject(project.id)}
+                              className="text-red-600 border-red-300 hover:bg-red-50"
+                            >
+                              Rechazar
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => handlePublishProject(project.id)}
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                            >
+                              Publicar en Biblioteca
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-8 text-center">
+                      <div className="bg-slate-100 p-4 rounded-full inline-block mb-4">
+                        <BookCheck className="w-8 h-8 text-slate-400" />
+                      </div>
+                      <h3 className="text-lg font-medium text-slate-900 mb-2">
+                        No hay proyectos aprobados pendientes
+                      </h3>
+                      <p className="text-sm text-slate-500 mb-4">
+                        Los proyectos aprobados por profesores aparecerán aquí para tu revisión
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Resumen de Estado */}
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 className="font-semibold text-slate-900 mb-4">
+                  Resumen de Evaluaciones
+                </h3>
+                
+                {/* Estado de carga */}
+                {loadingStats && (
+                  <div className="flex justify-center py-4">
+                    <div className="inline-flex items-center gap-2 text-primary">
+                      <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-sm">Cargando estadísticas...</span>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Estadísticas reales */}
+                {!loadingStats && evaluationStats && (
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="p-3 bg-green-50 rounded-lg">
+                      <p className="text-2xl font-bold text-green-600">{evaluationStats.completed}</p>
+                      <p className="text-xs text-green-700">Completadas</p>
+                      <p className="text-xs text-green-600 mt-1">{evaluationStats.completion_rate}%</p>
+                    </div>
+                    <div className="p-3 bg-yellow-50 rounded-lg">
+                      <p className="text-2xl font-bold text-yellow-600">{evaluationStats.in_process}</p>
+                      <p className="text-xs text-yellow-700">En Proceso</p>
+                    </div>
+                    <div className="p-3 bg-red-50 rounded-lg">
+                      <p className="text-2xl font-bold text-red-600">{evaluationStats.overdue}</p>
+                      <p className="text-xs text-red-700">Atrasadas</p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Estadísticas adicionales */}
+                {!loadingStats && evaluationStats && (
+                  <div className="mt-4 pt-4 border-t border-slate-100">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Total de Proyectos:</span>
+                        <span className="font-medium text-slate-900">{evaluationStats.total_projects}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Rechazados:</span>
+                        <span className="font-medium text-slate-900">{evaluationStats.rejected}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Calificación Promedio:</span>
+                        <span className="font-medium text-slate-900">{evaluationStats.avg_grade}/20</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Última Actualización:</span>
+                        <span className="font-medium text-slate-900 text-xs">
+                          {new Date(evaluationStats.last_updated).toLocaleTimeString()}
                         </span>
                       </div>
-                      {teacher.loadPercentage && (
-                        <p className="text-xs text-slate-400 mt-1">
-                          {teacher.loadPercentage}% de capacidad
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-slate-500 mb-1">
-                        Evaluaciones
-                      </p>
-                      <div className="space-y-1">
-                        <Badge
-                        variant={
-                        teacher.pendingEvaluations > 5 ? 'warning' : 'success'
-                        }>
-                          {teacher.pendingEvaluations} pendientes
-                        </Badge>
-                        {teacher.completedEvaluations !== undefined && (
-                          <p className="text-xs text-slate-400">
-                            {teacher.completedEvaluations} completadas
-                          </p>
-                        )}
-                      </div>
                     </div>
                   </div>
-                </div>
-              )
-              ) : (
-                <div className="p-8 text-center">
-                  <div className="bg-slate-100 p-4 rounded-full inline-block mb-4">
-                    <Search className="w-8 h-8 text-slate-400" />
-                  </div>
-                  <h3 className="text-lg font-medium text-slate-900 mb-2">
-                    No se encontraron docentes
-                  </h3>
-                  <p className="text-slate-500 mb-4">
-                    No hay docentes que coincidan con tu búsqueda.
-                  </p>
-                  <Button variant="outline" onClick={() => setTeacherSearchQuery('')}>
-                    Limpiar búsqueda
-                  </Button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-            )}
           </div>
         </div>
 
-        {/* Proyectos Aprobados por Profesores */}
+        {/* Panel Lateral - Chat Rápido */}
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <BookCheck className="w-5 h-5 text-primary" />
-              Proyectos Aprobados por Profesores
-            </h2>
-            <Badge variant="info">{approvedProjects.length} Pendientes</Badge>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="divide-y divide-slate-100">
-              {approvedProjects.length > 0 ? (
-                approvedProjects.map((project) => (
-                  <div key={project.id} className="p-4 hover:bg-slate-50 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-slate-900 mb-1">
-                          {project.title}
-                        </h3>
-                        <div className="flex items-center gap-4 text-sm text-slate-500">
-                          <span>Aprobado: {project.approvedDate}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 ml-4">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleViewProject(project)}
-                          className="text-slate-600 border-slate-300"
-                        >
-                          Ver Detalles
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleRejectProject(project.id)}
-                          className="text-red-600 border-red-300 hover:bg-red-50"
-                        >
-                          Rechazar
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => handlePublishProject(project.id)}
-                          className="bg-green-600 hover:bg-green-700 text-white"
-                        >
-                          Publicar en Biblioteca
-                        </Button>
-                      </div>
-                    </div>
+          {showSidebarChat && sidebarChatTeacher ? (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Avatar fallback={sidebarChatTeacher.name} size="sm" />
+                  <div>
+                    <h3 className="font-semibold text-slate-900 text-sm">{sidebarChatTeacher.name}</h3>
+                    <p className="text-xs text-slate-500">Chat Rápido</p>
                   </div>
-                ))
-              ) : (
-                <div className="p-8 text-center">
-                  <div className="bg-slate-100 p-4 rounded-full inline-block mb-4">
-                    <BookCheck className="w-8 h-8 text-slate-400" />
-                  </div>
-                  <h3 className="text-lg font-medium text-slate-900 mb-2">
-                    No hay proyectos aprobados pendientes
-                  </h3>
-                  <p className="text-sm text-slate-500 mb-4">
-                    Los proyectos aprobados por profesores aparecerán aquí para tu revisión
-                  </p>
                 </div>
-              )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowSidebarChat(false)}
+                  className="text-slate-400 hover:text-slate-600 p-1"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+              <SimpleTeacherCoordinatorChat
+                currentUser={{
+                  id: user.id,
+                  name: user.name,
+                  role: user.role,
+                  email: user.email
+                }}
+                otherUser={{
+                  id: sidebarChatTeacher.id,
+                  name: sidebarChatTeacher.name,
+                  role: 'teacher',
+                  email: sidebarChatTeacher.email
+                }}
+                showHeader={false}
+                height="h-[500px]"
+                className="border-0"
+              />
             </div>
-          </div>
-
-          {/* Resumen de Estado */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h3 className="font-semibold text-slate-900 mb-4">
-              Resumen de Evaluaciones
-            </h3>
-            
-            {/* Estado de carga */}
-            {loadingStats && (
-              <div className="flex justify-center py-4">
-                <div className="inline-flex items-center gap-2 text-primary">
-                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-sm">Cargando estadísticas...</span>
+          ) : (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <div className="text-center">
+                <MessageSquare className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                <h3 className="font-semibold text-slate-900 mb-2">Chat Rápido</h3>
+                <p className="text-sm text-slate-500 mb-4">
+                  Selecciona un docente para iniciar un chat rápido en el panel lateral
+                </p>
+                <div className="text-xs text-slate-400">
+                  <p>• Haz clic en "Chat Rápido" junto al docente</p>
+                  <p>• El chat aparecerá aquí para comunicación directa</p>
+                  <p>• Usa el menú "Chat" para una ventana más grande</p>
                 </div>
               </div>
-            )}
-            
-            {/* Estadísticas reales */}
-            {!loadingStats && evaluationStats && (
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div className="p-3 bg-green-50 rounded-lg">
-                  <p className="text-2xl font-bold text-green-600">{evaluationStats.completed}</p>
-                  <p className="text-xs text-green-700">Completadas</p>
-                  <p className="text-xs text-green-600 mt-1">{evaluationStats.completion_rate}%</p>
-                </div>
-                <div className="p-3 bg-yellow-50 rounded-lg">
-                  <p className="text-2xl font-bold text-yellow-600">{evaluationStats.in_process}</p>
-                  <p className="text-xs text-yellow-700">En Proceso</p>
-                </div>
-                <div className="p-3 bg-red-50 rounded-lg">
-                  <p className="text-2xl font-bold text-red-600">{evaluationStats.overdue}</p>
-                  <p className="text-xs text-red-700">Atrasadas</p>
-                </div>
-              </div>
-            )}
-            
-            {/* Estadísticas adicionales */}
-            {!loadingStats && evaluationStats && (
-              <div className="mt-4 pt-4 border-t border-slate-100">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Total de Proyectos:</span>
-                    <span className="font-medium text-slate-900">{evaluationStats.total_projects}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Rechazados:</span>
-                    <span className="font-medium text-slate-900">{evaluationStats.rejected}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Calificación Promedio:</span>
-                    <span className="font-medium text-slate-900">{evaluationStats.avg_grade}/20</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Última Actualización:</span>
-                    <span className="font-medium text-slate-900 text-xs">
-                      {new Date(evaluationStats.last_updated).toLocaleTimeString()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Modal de Chat con Docente */}
-      <ChatComponent
-        isOpen={isChatOpen}
-        onClose={closeChat}
-        currentUser={user}
-        otherUser={selectedTeacher ? {
-          id: selectedTeacher.id.toString(),
-          name: selectedTeacher.name,
-          role: 'teacher',
-          email: selectedTeacher.email,
-          lastActive: selectedTeacher.lastActive,
-          pendingEvaluations: selectedTeacher.pendingEvaluations
-        } : undefined}
-        conversationId={conversationId}
-      />
 
       {/* Modal de Detalles del Proyecto */}
       <Modal 

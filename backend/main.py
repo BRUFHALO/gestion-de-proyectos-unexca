@@ -42,7 +42,7 @@ from config.database import Database, DatabaseConfig
 
 
 
-from api import users, projects, careers, subjects, auth, feedback, docx_processor, pdf_evaluation, chat, storage, notifications, coordinator_projects, debug, debug_projects
+from api import users, projects, careers, subjects, auth, feedback, docx_processor, pdf_evaluation, chat, storage, notifications, coordinator_projects, debug, debug_projects, simple_chat
 
 
 
@@ -194,23 +194,6 @@ app.add_middleware(
 
 
 
-# Montar directorio de archivos estáticos (uploads)
-
-
-
-uploads_path = Path(__file__).parent / "uploads"
-
-
-
-uploads_path.mkdir(exist_ok=True)
-
-
-
-app.mount("/uploads", StaticFiles(directory=str(uploads_path)), name="uploads")
-
-
-
-
 
 
 
@@ -273,6 +256,12 @@ app.include_router(debug.router)
 app.include_router(debug_projects.router)
 
 
+app.include_router(simple_chat.router)
+
+# Montar archivos estáticos DESPUÉS de los routers
+uploads_path = Path(__file__).parent / "uploads"
+uploads_path.mkdir(exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(uploads_path)), name="uploads")
 
 
 
