@@ -79,6 +79,21 @@ export function PDFEvaluationViewer({
   const [status, setStatus] = useState<'en_revision' | 'aprobado' | 'reprobado'>('en_revision');
   const [isGradeModalOpen, setIsGradeModalOpen] = useState(false);
 
+  // Actualizar status cuando cambia el tipo de calificación
+  const handleGradeTypeChange = (newType: 'parcial' | 'definitiva') => {
+    setGradeType(newType);
+    // Si es parcial, solo permitir en_revision
+    if (newType === 'parcial') {
+      setStatus('en_revision');
+    }
+    // Si es definitiva, mantener el status actual si es aprobado/reprobado, sino poner aprobado por defecto
+    else if (newType === 'definitiva') {
+      if (status === 'en_revision') {
+        setStatus('aprobado');
+      }
+    }
+  };
+
   const pageRef = useRef<HTMLDivElement>(null);
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -972,7 +987,7 @@ export function PDFEvaluationViewer({
                     ? 'bg-blue-100 text-blue-700 border border-blue-300'
                     : 'bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200'
                 }`}
-                onClick={() => setGradeType('parcial')}
+                onClick={() => handleGradeTypeChange('parcial')}
               >
                 📝 Parcial (1-20)
               </button>
@@ -982,7 +997,7 @@ export function PDFEvaluationViewer({
                     ? 'bg-blue-100 text-blue-700 border border-blue-300'
                     : 'bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200'
                 }`}
-                onClick={() => setGradeType('definitiva')}
+                onClick={() => handleGradeTypeChange('definitiva')}
               >
                 🏆 Definitiva (1-20)
               </button>
@@ -1025,11 +1040,27 @@ export function PDFEvaluationViewer({
               value={status}
               onChange={(e) => setStatus(e.target.value as 'en_revision' | 'aprobado' | 'reprobado')}
               className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              disabled={gradeType === 'parcial'} // Deshabilitar si es parcial
             >
-              <option value="en_revision">🔄 En Revisión</option>
-              <option value="aprobado">✅ Aprobado</option>
-              <option value="reprobado">❌ Reprobado</option>
+              {gradeType === 'parcial' ? (
+                <option value="en_revision">🔄 En Revisión</option>
+              ) : (
+                <>
+                  <option value="aprobado">✅ Aprobado</option>
+                  <option value="reprobado">❌ Reprobado</option>
+                </>
+              )}
             </select>
+            {gradeType === 'parcial' && (
+              <p className="text-xs text-slate-500 mt-1">
+                💡 Las calificaciones parciales solo pueden tener status "En Revisión"
+              </p>
+            )}
+            {gradeType === 'definitiva' && (
+              <p className="text-xs text-slate-500 mt-1">
+                💡 Las calificaciones definitivas deben ser "Aprobado" o "Reprobado"
+              </p>
+            )}
           </div>
 
           {/* Resumen */}

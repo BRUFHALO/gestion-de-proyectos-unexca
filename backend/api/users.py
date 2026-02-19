@@ -243,6 +243,97 @@ async def get_users(
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 
+@router.get("/teachers-stats", response_model=List[dict])
+async def get_teachers_stats():
+    """Obtener estadísticas detalladas de profesores"""
+    try:
+        users_collection = Database.get_collection(DatabaseConfig.USERS_COLLECTION)
+        projects_collection = Database.get_collection(DatabaseConfig.PROJECTS_COLLECTION)
+        
+        # Obtener todos los profesores activos
+        teachers_cursor = users_collection.find({
+            "role": "teacher",
+            "is_active": True
+        })
+        teachers = await teachers_cursor.to_list(length=None)
+        
+        result = []
+        
+        for teacher in teachers:
+            teacher_id = str(teacher["_id"])
+            
+            # Estadísticas de proyectos
+            assigned_projects = await projects_collection.count_documents({
+                "evaluation.assigned_to": ObjectId(teacher_id)
+            })
+            
+            pending_evaluations = await projects_collection.count_documents({
+                "evaluation.assigned_to": ObjectId(teacher_id),
+                "metadata.status": {"$in": ["submitted", "in_review"]}
+            })
+            
+            completed_evaluations = await projects_collection.count_documents({
+                "evaluation.assigned_to": ObjectId(teacher_id),
+                "metadata.status": {"$in": ["approved", "rejected", "published"]}
+            })
+            
+            # Última actividad (basada en last_login o última evaluación)
+            last_login = teacher.get("last_login")
+            last_active = "Desconocido"
+            
+            if last_login:
+                try:
+                    if isinstance(last_login, str):
+                        login_date = datetime.fromisoformat(last_login.replace('Z', '+00:00'))
+                    else:
+                        login_date = last_login
+                    
+                    days_ago = (datetime.utcnow() - login_date).days
+                    if days_ago == 0:
+                        last_active = "Hoy"
+                    elif days_ago == 1:
+                        last_active = "Ayer"
+                    elif days_ago <= 7:
+                        last_active = f"Hace {days_ago} días"
+                    else:
+                        last_active = f"Hace {days_ago} días"
+                except:
+                    last_active = "No disponible"
+            
+            # Calcular carga de trabajo (porcentaje de capacidad)
+            capacity = 20  # Capacidad máxima configurable
+            load_percentage = min((assigned_projects / capacity) * 100, 100)
+            
+            teacher_stats = {
+                "id": teacher_id,
+                "name": teacher.get("name", "Sin nombre"),
+                "email": teacher.get("email", ""),
+                "career": teacher.get("university_data", {}).get("career_name", "Sin carrera"),
+                "load": assigned_projects,  # Proyectos asignados
+                "load_percentage": round(load_percentage, 1),
+                "capacity": capacity,
+                "pending_evaluations": pending_evaluations,
+                "completed_evaluations": completed_evaluations,
+                "total_projects": assigned_projects,
+                "last_active": last_active,
+                "last_login": teacher.get("last_login"),
+                "academic_status": teacher.get("university_data", {}).get("academic_status", "active"),
+                "department": teacher.get("university_data", {}).get("department", "Sin departamento"),
+                "category": teacher.get("university_data", {}).get("category", "Sin categoría")
+            }
+            
+            result.append(teacher_stats)
+        
+        # Ordenar por carga de trabajo (mayor a menor)
+        result.sort(key=lambda x: x["load"], reverse=True)
+        
+        return result
+        
+    except Exception as e:
+        print(f"Error en get_teachers_stats: {e}")
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+
 @router.get("/students-with-assignments", response_model=List[dict])
 async def get_students_with_assignments():
     """Obtener lista de estudiantes con sus asignaciones de profesor"""

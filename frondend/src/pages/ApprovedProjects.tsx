@@ -193,9 +193,11 @@ export function ApprovedProjects({
               <Select
                 options={[
                   { value: 'all', label: 'Todas las Carreras' },
-                  { value: 'Ingeniería en Informática', label: 'Ingeniería en Informática' },
+                  { value: 'Turismo', label: 'Turismo' },
+                  { value: 'Ingeniería Agroalimentaria', label: 'Ingeniería Agroalimentaria' },
                   { value: 'Administración de Empresas', label: 'Administración de Empresas' },
-                  { value: 'Educación', label: 'Educación' }
+                  { value: 'Ingeniería Informática', label: 'Ingeniería Informática' },
+                  { value: 'Distribución Logística', label: 'Distribución Logística' }
                 ]}
                 value={selectedCareer}
                 onChange={(e) => setSelectedCareer(e.target.value)}

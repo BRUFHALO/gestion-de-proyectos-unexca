@@ -1,7 +1,6 @@
-import React, { useState, Component } from 'react';
+import { useState } from 'react';
 import {
   Search,
-  Filter,
   Download,
   GraduationCap,
   LogIn,
@@ -20,102 +19,40 @@ interface PublicLibraryProps {
   onLogout: () => void;
   onNavigate: (page: string) => void;
   onLogin: () => void;
+  projects?: any[]; // Array de proyectos desde el backend
 }
 export function PublicLibrary({
   user,
   onLogout,
   onNavigate,
-  onLogin
+  onLogin,
+  projects
 }: PublicLibraryProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCareer, setSelectedCareer] = useState('all');
   const [selectedProject, setSelectedProject] = useState<any>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  // Datos de ejemplo
-  const projects = [
-  {
-    id: 1,
-    title: 'Implementación de IA en Planificación Urbana',
-    authors: ['María Rodríguez', 'Carlos Pérez'],
-    career: 'Ingeniería en Informática',
-    year: '2024',
-    methodology: 'Scrum',
-    abstract:
-    'Este proyecto explora la integración de algoritmos de inteligencia artificial en los procesos de planificación urbana para optimizar el flujo de tráfico y la asignación de recursos.',
-    methods: ['Machine Learning', 'Análisis de Datos', 'Python'],
-    thumbnail:
-    'https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    id: 2,
-    title: 'Modelos Financieros Sostenibles para PYMES',
-    authors: ['Ana Silva'],
-    career: 'Administración de Empresas',
-    year: '2024',
-    methodology: 'Investigación Cuantitativa',
-    abstract:
-    'Un análisis de modelos financieros sostenibles aplicables a Pequeñas y Medianas Empresas en el clima económico actual.',
-    methods: ['Análisis Estadístico', 'Modelado Financiero'],
-    thumbnail:
-    'https://images.unsplash.com/photo-1554224155-6726b3ff858f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    id: 3,
-    title: 'Transformación Digital en la Educación',
-    authors: ['Luis González', 'Elena Torres'],
-    career: 'Educación',
-    year: '2023',
-    methodology: 'Investigación-Acción',
-    abstract:
-    'Investigación sobre el impacto de las herramientas digitales en los resultados de aprendizaje en instituciones de educación superior.',
-    methods: ['Encuestas', 'Estudios de Caso'],
-    thumbnail:
-    'https://images.unsplash.com/photo-1501504905252-473c47e087f8?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    id: 4,
-    title: 'Protocolos de Ciberseguridad para Banca',
-    authors: ['David Hernández'],
-    career: 'Ingeniería en Informática',
-    year: '2024',
-    methodology: 'Cascada',
-    abstract:
-    'Desarrollo de protocolos robustos de ciberseguridad para infraestructura bancaria para prevenir amenazas digitales modernas.',
-    methods: ['Pruebas de Penetración', 'Criptografía'],
-    thumbnail:
-    'https://images.unsplash.com/photo-1563986768609-322da13575f3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    id: 5,
-    title: 'Sistema de Gestión de Inventarios con IoT',
-    authors: ['Patricia Mendoza', 'Roberto Díaz'],
-    career: 'Ingeniería en Informática',
-    year: '2023',
-    methodology: 'Ágil',
-    abstract:
-    'Implementación de un sistema de gestión de inventarios utilizando tecnología IoT para automatizar el seguimiento de productos en almacenes.',
-    methods: ['IoT', 'Base de Datos', 'APIs REST'],
-    thumbnail:
-    'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    id: 6,
-    title: 'Estrategias de Marketing Digital para Startups',
-    authors: ['Gabriela Vargas'],
-    career: 'Administración de Empresas',
-    year: '2024',
-    methodology: 'Estudio de Caso',
-    abstract:
-    'Análisis de estrategias efectivas de marketing digital implementadas por startups exitosas en Latinoamérica.',
-    methods: ['Análisis de Mercado', 'Entrevistas', 'Métricas Digitales'],
-    thumbnail:
-    'https://images.unsplash.com/photo-1460925895917-afdab827c52f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-  }];
 
-  const filteredProjects = projects.filter((p) => {
+  // Datos que vendrán del backend con estructura: project.academic_info.career_name
+  const projectsData = projects || [];
+
+  // Transformar datos del backend al formato que espera el componente
+  const transformedProjects = projectsData.map((project: any) => ({
+    id: project._id || project.id,
+    title: project.title,
+    authors: project.authors?.map((author: any) => author.name) || [],
+    career: project.academic_info?.career_name || 'Sin carrera',
+    year: project.academic_info?.year?.toString() || '2024',
+    methodology: project.academic_info?.methodology || 'No especificada',
+    abstract: project.description || 'Sin descripción',
+    methods: project.keywords || [],
+    thumbnail: project.thumbnail || null
+  }));
+
+  const filteredProjects = transformedProjects.filter((p: any) => {
     const matchesSearch =
     p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.authors.some((a) => a.toLowerCase().includes(searchQuery.toLowerCase()));
+    p.authors.some((a: any) => a.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesCareer =
     selectedCareer === 'all' || p.career === selectedCareer;
     return matchesSearch && matchesCareer;
@@ -274,15 +211,15 @@ function LibraryContent({
   filteredProjects,
   selectedProject,
   setSelectedProject
-
-
-
-
-
-
-
-
-}: {searchQuery: string;setSearchQuery: (q: string) => void;selectedCareer: string;setSelectedCareer: (c: string) => void;filteredProjects: any[];selectedProject: any;setSelectedProject: (p: any) => void;}) {
+}: {
+  searchQuery: string;
+  setSearchQuery: (q: string) => void;
+  selectedCareer: string;
+  setSelectedCareer: (c: string) => void;
+  filteredProjects: any[];
+  selectedProject: any;
+  setSelectedProject: (p: any) => void;
+}) {
   return (
     <>
       {/* Sección de Filtros */}
@@ -308,12 +245,20 @@ function LibraryContent({
                 label: 'Ingeniería en Informática'
               },
               {
-                value: 'Administración de Empresas',
-                label: 'Administración de Empresas'
+                value: 'Administracion de Empresas',
+                label: 'Administracion de Empresas'
               },
               {
-                value: 'Educación',
-                label: 'Educación'
+                value: 'Turismo',
+                label: 'Turismo'
+              },
+              {
+                value: 'Ingeniería Agroalimentaria',
+                label: 'Ingeniería Agroalimentaria'
+              },
+              {
+                value: 'Distribucion y Logistica',
+                label: 'Distribucion y Logistica'
               }]
               }
               value={selectedCareer}
@@ -337,17 +282,22 @@ function LibraryContent({
       {/* Grid de Proyectos */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredProjects.map((project) =>
-        <ProjectCard
-          key={project.id}
-          {...project}
-          onView={() => setSelectedProject(project)}
-          onDownload={() => alert(`Descargando ${project.title}...`)} />
+          <ProjectCard
+            key={project.id}
+            title={project.title}
+            authors={project.authors}
+            career={project.career}
+            year={project.year}
+            methodology={project.methodology}
+            thumbnail={project.thumbnail}
+            onView={() => setSelectedProject(project)}
+            onDownload={() => alert(`Descargando ${project.title}...`)} />
 
         )}
       </div>
 
       {filteredProjects.length === 0 &&
-      <div className="text-center py-20">
+        <div className="text-center py-20">
           <div className="bg-slate-100 p-4 rounded-full inline-block mb-4">
             <Search className="w-8 h-8 text-slate-400" />
           </div>

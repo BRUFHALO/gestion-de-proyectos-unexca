@@ -32,6 +32,11 @@ interface Teacher {
   email: string;
   pendingEvaluations: number;
   lastActive: string;
+  loadPercentage?: number;
+  completedEvaluations?: number;
+  totalProjects?: number;
+  department?: string;
+  category?: string;
 }
 interface ApprovedProject {
   id: string;
@@ -61,29 +66,47 @@ export function CoordinatorDashboard({
   const [publishedProjects, setPublishedProjects] = useState<ApprovedProject[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loadingTeachers, setLoadingTeachers] = useState(false);
+  const [evaluationStats, setEvaluationStats] = useState<{
+    completed: number;
+    in_process: number;
+    overdue: number;
+    total_projects: number;
+    rejected: number;
+    avg_grade: number;
+    completion_rate: number;
+    last_updated: string;
+  } | null>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
 
-  // Cargar profesores desde la base de datos
+  // Cargar profesores// Función para cargar profesores con estadísticas reales
   const loadTeachers = async () => {
     try {
       setLoadingTeachers(true);
-      const response = await fetch('http://localhost:8000/api/v1/users?role=teacher&is_active=true');
+      
+      // Obtener estadísticas reales de profesores
+      const response = await fetch(`${API_BASE_URL}/api/v1/users/teachers-stats`);
       
       if (response.ok) {
-        const usersData = await response.json();
+        const teachersData = await response.json();
         
-        // Transformar datos de usuarios al formato Teacher
-        const teachersData: Teacher[] = usersData.map((user: any) => ({
-          id: user._id || user.id,
-          name: user.name || user.first_name + ' ' + user.last_name,
-          load: Math.floor(Math.random() * 15) + 5, // Temporal hasta tener datos reales
-          capacity: 20,
-          career: user.university_data?.career_name || 'Sin carrera especificada',
-          email: user.email,
-          pendingEvaluations: Math.floor(Math.random() * 10), // Temporal
-          lastActive: 'En línea' // Temporal
+        // Transformar datos al formato Teacher
+        const formattedTeachers: Teacher[] = teachersData.map((teacher: any) => ({
+          id: teacher.id,
+          name: teacher.name,
+          load: teacher.load,  // Carga real de proyectos asignados
+          capacity: teacher.capacity,  // Capacidad máxima
+          career: teacher.career,
+          email: teacher.email,
+          pendingEvaluations: teacher.pending_evaluations,  // Evaluaciones pendientes reales
+          lastActive: teacher.last_active,  // Última actividad real
+          loadPercentage: teacher.load_percentage,  // Porcentaje de carga
+          completedEvaluations: teacher.completed_evaluations,  // Evaluaciones completadas
+          totalProjects: teacher.total_projects,  // Total de proyectos
+          department: teacher.department,  // Departamento
+          category: teacher.category  // Categoría
         }));
         
-        setTeachers(teachersData);
+        setTeachers(formattedTeachers);
       }
     } catch (error) {
       console.error('Error cargando profesores:', error);
@@ -92,8 +115,29 @@ export function CoordinatorDashboard({
     }
   };
 
+  // Función para cargar estadísticas de evaluaciones
+  const loadEvaluationStats = async () => {
+    try {
+      setLoadingStats(true);
+      
+      const response = await fetch(`${API_BASE_URL}/api/v1/projects/evaluation-stats`);
+      
+      if (response.ok) {
+        const stats = await response.json();
+        setEvaluationStats(stats);
+      } else {
+        console.error('Error loading evaluation stats');
+      }
+    } catch (error) {
+      console.error('Error cargando estadísticas de evaluaciones:', error);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
   useEffect(() => {
     loadTeachers();
+    loadEvaluationStats();
   }, []);
 
   // Función para recargar todos los datos de proyectos
@@ -285,9 +329,21 @@ export function CoordinatorDashboard({
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="divide-y divide-slate-100">
-              {filteredTeachers.length > 0 ? (
-                filteredTeachers.map((teacher) =>
+            {/* Estado de carga de profesores */}
+            {loadingTeachers && (
+              <div className="p-8 text-center">
+                <div className="inline-flex items-center gap-2 text-primary">
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-sm">Cargando estadísticas de profesores...</span>
+                </div>
+              </div>
+            )}
+            
+            {/* Lista de profesores */}
+            {!loadingTeachers && (
+              <div className="divide-y divide-slate-100">
+                {filteredTeachers.length > 0 ? (
+                  filteredTeachers.map((teacher) =>
               <div
                 key={teacher.id}
                 className="p-4 hover:bg-slate-50 transition-colors">
@@ -310,6 +366,11 @@ export function CoordinatorDashboard({
                         <p className="text-xs text-slate-400">
                           {teacher.lastActive}
                         </p>
+                        {teacher.department && (
+                          <p className="text-xs text-slate-400">
+                            {teacher.department}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -340,26 +401,35 @@ export function CoordinatorDashboard({
                           style={{
                             width: `${teacher.load / teacher.capacity * 100}%`
                           }} />
-
                         </div>
                         <span
                         className={`text-xs font-semibold ${getLoadTextColor(teacher.load, teacher.capacity)}`}>
-
                           {teacher.load}/{teacher.capacity}
                         </span>
                       </div>
+                      {teacher.loadPercentage && (
+                        <p className="text-xs text-slate-400 mt-1">
+                          {teacher.loadPercentage}% de capacidad
+                        </p>
+                      )}
                     </div>
                     <div>
                       <p className="text-xs font-medium text-slate-500 mb-1">
-                        Pendientes
+                        Evaluaciones
                       </p>
-                      <Badge
-                      variant={
-                      teacher.pendingEvaluations > 5 ? 'warning' : 'success'
-                      }>
-
-                        {teacher.pendingEvaluations} por evaluar
-                      </Badge>
+                      <div className="space-y-1">
+                        <Badge
+                        variant={
+                        teacher.pendingEvaluations > 5 ? 'warning' : 'success'
+                        }>
+                          {teacher.pendingEvaluations} pendientes
+                        </Badge>
+                        {teacher.completedEvaluations !== undefined && (
+                          <p className="text-xs text-slate-400">
+                            {teacher.completedEvaluations} completadas
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -381,6 +451,7 @@ export function CoordinatorDashboard({
                 </div>
               )}
             </div>
+            )}
           </div>
         </div>
 
@@ -457,20 +528,61 @@ export function CoordinatorDashboard({
             <h3 className="font-semibold text-slate-900 mb-4">
               Resumen de Evaluaciones
             </h3>
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div className="p-3 bg-green-50 rounded-lg">
-                <p className="text-2xl font-bold text-green-600">47</p>
-                <p className="text-xs text-green-700">Completadas</p>
+            
+            {/* Estado de carga */}
+            {loadingStats && (
+              <div className="flex justify-center py-4">
+                <div className="inline-flex items-center gap-2 text-primary">
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-sm">Cargando estadísticas...</span>
+                </div>
               </div>
-              <div className="p-3 bg-yellow-50 rounded-lg">
-                <p className="text-2xl font-bold text-yellow-600">27</p>
-                <p className="text-xs text-yellow-700">En Proceso</p>
+            )}
+            
+            {/* Estadísticas reales */}
+            {!loadingStats && evaluationStats && (
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <p className="text-2xl font-bold text-green-600">{evaluationStats.completed}</p>
+                  <p className="text-xs text-green-700">Completadas</p>
+                  <p className="text-xs text-green-600 mt-1">{evaluationStats.completion_rate}%</p>
+                </div>
+                <div className="p-3 bg-yellow-50 rounded-lg">
+                  <p className="text-2xl font-bold text-yellow-600">{evaluationStats.in_process}</p>
+                  <p className="text-xs text-yellow-700">En Proceso</p>
+                </div>
+                <div className="p-3 bg-red-50 rounded-lg">
+                  <p className="text-2xl font-bold text-red-600">{evaluationStats.overdue}</p>
+                  <p className="text-xs text-red-700">Atrasadas</p>
+                </div>
               </div>
-              <div className="p-3 bg-red-50 rounded-lg">
-                <p className="text-2xl font-bold text-red-600">8</p>
-                <p className="text-xs text-red-700">Atrasadas</p>
+            )}
+            
+            {/* Estadísticas adicionales */}
+            {!loadingStats && evaluationStats && (
+              <div className="mt-4 pt-4 border-t border-slate-100">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Total de Proyectos:</span>
+                    <span className="font-medium text-slate-900">{evaluationStats.total_projects}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Rechazados:</span>
+                    <span className="font-medium text-slate-900">{evaluationStats.rejected}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Calificación Promedio:</span>
+                    <span className="font-medium text-slate-900">{evaluationStats.avg_grade}/20</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Última Actualización:</span>
+                    <span className="font-medium text-slate-900 text-xs">
+                      {new Date(evaluationStats.last_updated).toLocaleTimeString()}
+                    </span>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

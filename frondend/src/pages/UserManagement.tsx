@@ -35,16 +35,11 @@ interface UserManagementProps {
 }
 
 const PNF_OPTIONS = [
-  { value: 'informatica', label: 'Informática' },
-  { value: 'electricidad', label: 'Electricidad' },
-  { value: 'mecanica', label: 'Mecánica' },
-  { value: 'civil', label: 'Civil' },
-  { value: 'quimica', label: 'Química' },
-  { value: 'electronica', label: 'Electrónica' },
-  { value: 'administracion', label: 'Administración' },
-  { value: 'contabilidad', label: 'Contabilidad' },
   { value: 'turismo', label: 'Turismo' },
-  { value: 'agroindustria', label: 'Agroindustria' }
+  { value: 'ingenieria agroalimentaria', label: 'Ingeniería Agroalimentaria' },
+  { value: 'administracion de empresas', label: 'Administración de Empresas' },
+  { value: 'ingenieria informatica', label: 'Ingeniería Informática' },
+  { value: 'distribucion logistica', label: 'Distribución Logística' }
 ];
 
 const ROLE_OPTIONS = [

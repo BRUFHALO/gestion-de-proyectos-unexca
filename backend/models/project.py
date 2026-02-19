@@ -209,5 +209,12 @@ class Project(BaseModel):
                     "subject": "Proyecto Integrador III",
                     "subject_code": "PI-III"
                 }
+            },
+            "career_names_standard": {
+                "Ingeniería en Informática": "Ingeniería en Informática",
+                "Administracion de Empresas": "Administracion de Empresas", 
+                "Turismo": "Turismo",
+                "Ingeniería Agroalimentaria": "Ingeniería Agroalimentaria",
+                "Distribucion y Logistica": "Distribucion y Logistica"
             }
         }

@@ -484,6 +484,88 @@ async def get_grade_and_status(project_id: str):
 
 
 
+@router.get("/evaluation-stats", response_model=dict)
+async def get_evaluation_stats():
+    """Obtener estadísticas de evaluaciones"""
+    try:
+        projects_collection = Database.get_collection(DatabaseConfig.PROJECTS_COLLECTION)
+        
+        # Contar proyectos por estado
+        completed = await projects_collection.count_documents({
+            "metadata.status": {"$in": ["approved", "published"]}
+        })
+        
+        in_process = await projects_collection.count_documents({
+            "metadata.status": {"$in": ["submitted", "in_review", "en_revision"]}
+        })
+        
+        # Para proyectos atrasados, consideramos aquellos con fecha límite pasada
+        # y que aún no estén completados ni en revisión
+        current_date = datetime.utcnow()
+        overdue = await projects_collection.count_documents({
+            "metadata.status": {"$nin": ["approved", "published", "rejected", "en_revision"]},
+            "metadata.submission_date": {"$lt": current_date}
+        })
+        
+        # Estadísticas adicionales
+        total_projects = await projects_collection.count_documents({})
+        rejected = await projects_collection.count_documents({
+            "metadata.status": "rejected"
+        })
+        
+        # Calcular promedio de calificaciones
+        pipeline = [
+            {"$match": {"evaluation.grade": {"$exists": True, "$ne": None}}},
+            {"$group": {
+                "_id": None,
+                "avg_grade": {"$avg": "$evaluation.grade"},
+                "count": {"$sum": 1}
+            }}
+        ]
+        
+        grade_result = await projects_collection.aggregate(pipeline).to_list(1)
+        avg_grade = grade_result[0]["avg_grade"] if grade_result else 0
+        
+        # Estadísticas por carrera
+        pipeline_careers = [
+            {"$match": {"metadata.career": {"$exists": True}}},
+            {"$group": {
+                "_id": "$metadata.career",
+                "count": {"$sum": 1},
+                "completed": {
+                    "$sum": {
+                        "$cond": [
+                            {"$in": ["$metadata.status", ["approved", "published"]]},
+                            1,
+                            0
+                        ]
+                    }
+                }
+            }},
+            {"$sort": {"count": -1}}
+        ]
+        
+        career_stats = await projects_collection.aggregate(pipeline_careers).to_list(10)
+        
+        stats = {
+            "completed": completed,
+            "in_process": in_process,
+            "overdue": overdue,
+            "total_projects": total_projects,
+            "rejected": rejected,
+            "avg_grade": round(avg_grade, 2),
+            "completion_rate": round((completed / total_projects * 100) if total_projects > 0 else 0, 1),
+            "career_stats": career_stats,
+            "last_updated": datetime.utcnow().isoformat()
+        }
+        
+        return stats
+        
+    except Exception as e:
+        print(f"Error en get_evaluation_stats: {e}")
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+
 @router.get("/test")
 
 
@@ -682,17 +764,8 @@ async def get_projects(
 
 
 
-
-
-
-
-
 @router.get("/{project_id}")
-
-
-
 async def get_project(project_id: str):
-
 
 
     """Obtener un proyecto por ID"""
