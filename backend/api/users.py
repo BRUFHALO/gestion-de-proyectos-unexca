@@ -146,6 +146,19 @@ async def assign_teacher_to_student(assignment: AssignTeacherRequest = Body(...)
         if result.matched_count == 0:
             raise HTTPException(status_code=404, detail="Estudiante no encontrado")
         
+        # Actualizar proyectos existentes del estudiante con la nueva asignación
+        projects_collection = Database.get_collection(DatabaseConfig.PROJECTS_COLLECTION)
+        await projects_collection.update_many(
+            {"created_by": student_obj_id},
+            {
+                "$set": {
+                    "evaluation.assigned_to": str(teacher_obj_id),
+                    "evaluation.assigned_at": datetime.utcnow(),
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+        
         return {
             "message": "Profesor asignado exitosamente",
             "student_name": student.get("name", ""),
@@ -382,6 +395,67 @@ async def get_available_teachers():
     except Exception as e:
         print(f"Error en get_available_teachers: {e}")
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+
+@router.get("/by-cedula/{cedula}", response_model=dict)
+async def get_student_by_cedula(cedula: str):
+    """Buscar estudiante por número de cédula"""
+    # Asegurar conexión a la base de datos
+    try:
+        Database.get_database()
+    except Exception:
+        await Database.connect_db()
+    
+    users_collection = Database.get_collection(DatabaseConfig.USERS_COLLECTION)
+    
+    print(f"🔍 Buscando estudiante con cédula: {cedula}")
+    
+    try:
+        # Buscar usuario por cédula y rol de estudiante
+        query = {"cedula": cedula, "role": "student"}
+        print(f"📋 Query de búsqueda: {query}")
+        
+        student = await users_collection.find_one(query)
+        
+        print(f"📊 Resultado de búsqueda: {student}")
+        
+        if not student:
+            print(f"❌ Estudiante no encontrado con cédula: {cedula}")
+            # Buscar si existe algún usuario con esa cédula (sin importar rol)
+            any_user = await users_collection.find_one({"cedula": cedula})
+            if any_user:
+                print(f"⚠️  Existe usuario con esa cédula pero rol: {any_user.get('role')}")
+            else:
+                print(f"⚠️  No existe ningún usuario con esa cédula")
+            raise HTTPException(status_code=404, detail="Estudiante no encontrado")
+        
+        # Convertir ObjectId a string y preparar respuesta
+        student_data = convert_objectids(student)
+        print(f"✅ Estudiante encontrado: {student_data.get('first_name')} {student_data.get('last_name')}")
+        
+        # Devolver solo los campos necesarios
+        response_data = {
+            "_id": student_data["_id"],
+            "name": (
+                f"{student_data.get('first_name', '')} {student_data.get('last_name', '')}".strip() 
+                if student_data.get('first_name') or student_data.get('last_name')
+                else student_data.get('name', 'Sin nombre')
+            ),
+            "email": student_data.get("email", ""),
+            "cedula": student_data.get("cedula", ""),
+            "section": student_data.get("university_data", {}).get("section", ""),
+            "grade": student_data.get("university_data", {}).get("grade", ""),
+            "role": student_data.get("role", "student")
+        }
+        
+        print(f"📤 Respuesta preparada: {response_data}")
+        return response_data
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error en búsqueda: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/{user_id}", response_model=dict)
@@ -672,6 +746,19 @@ async def assign_teacher_to_student(assignment: AssignTeacherRequest = Body(...)
         if result.matched_count == 0:
             raise HTTPException(status_code=404, detail="Estudiante no encontrado")
         
+        # Actualizar proyectos existentes del estudiante con la nueva asignación
+        projects_collection = Database.get_collection(DatabaseConfig.PROJECTS_COLLECTION)
+        await projects_collection.update_many(
+            {"created_by": student_obj_id},
+            {
+                "$set": {
+                    "evaluation.assigned_to": str(teacher_obj_id),
+                    "evaluation.assigned_at": datetime.utcnow(),
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+        
         return {
             "message": "Profesor asignado exitosamente",
             "student_name": student.get("name", ""),
@@ -727,13 +814,6 @@ async def unassign_teacher_from_student(assignment: UnassignTeacherRequest = Bod
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/{user_id}", response_model=dict)
-async def delete_user(user_id: str):
-    """Eliminar un usuario"""
-    from bson import ObjectId
-    
-    users_collection = Database.get_collection(DatabaseConfig.USERS_COLLECTION)
-    
     try:
         obj_id = ObjectId(user_id)
         

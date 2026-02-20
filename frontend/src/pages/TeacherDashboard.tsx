@@ -20,7 +20,6 @@ import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
-import { ChatPanel } from '../components/ChatPanel';
 interface TeacherDashboardProps {
   user: any;
   onLogout: () => void;
@@ -36,11 +35,12 @@ export function TeacherDashboard({
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSection, setSelectedSection] = useState('all');
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [isCoordinatorChatOpen, setIsCoordinatorChatOpen] = useState(false);
+  const [dateFilter, setDateFilter] = useState('all');
   const [assignedProjects, setAssignedProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState<any>(null);
+  const [teacherStats, setTeacherStats] = useState<any>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
   const { showToast } = useToast();
 
   // Cargar datos del usuario desde localStorage
@@ -50,6 +50,35 @@ export function TeacherDashboard({
       setUserData(JSON.parse(storedUser));
     }
   }, []);
+
+  // Cargar estadísticas del docente
+  const loadTeacherStats = async () => {
+    if (!userData?._id) return;
+    
+    try {
+      setStatsLoading(true);
+      const response = await fetch(`${API_BASE_URL}/api/v1/users/teachers-stats`);
+      if (response.ok) {
+        const allTeachersStats = await response.json();
+        // Encontrar las estadísticas del docente actual
+        const currentTeacherStats = allTeachersStats.find((stats: any) => stats.id === userData._id);
+        setTeacherStats(currentTeacherStats || null);
+      } else {
+        console.error('Error cargando estadísticas del docente:', response.status);
+      }
+    } catch (error) {
+      console.error('Error cargando estadísticas del docente:', error);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  // Cargar estadísticas cuando los datos del usuario estén disponibles
+  useEffect(() => {
+    if (userData) {
+      loadTeacherStats();
+    }
+  }, [userData]);
 
   // Cargar proyectos asignados al profesor
   useEffect(() => {
@@ -80,6 +109,17 @@ export function TeacherDashboard({
         );
         
         console.log('Projects with evaluation:', projectsWithEvaluation);
+        console.log('Sample project structure:', projectsWithEvaluation[0]);
+        if (projectsWithEvaluation.length > 0) {
+          console.log('Estados de proyectos:');
+          projectsWithEvaluation.forEach((project: any, index) => {
+            console.log(`Proyecto ${index + 1}:`, {
+              title: project.title,
+              status: project.metadata?.status,
+              evaluation_status: project.evaluation?.status
+            });
+          });
+        }
         setAssignedProjects(projectsWithEvaluation);
       } catch (error) {
         console.error('Error al cargar proyectos:', error);
@@ -93,7 +133,7 @@ export function TeacherDashboard({
       fetchAssignedProjects();
     }
   }, [userData, showToast]);
-  // Calcular estadísticas desde proyectos reales
+  // Calcular estadísticas desde proyectos reales (fallback si no hay stats del API)
   const approvedCount = assignedProjects.filter(p => p.evaluation?.status === 'aprobado').length;
   const reprobatedCount = assignedProjects.filter(p => p.evaluation?.status === 'reprobado').length;
   const toEvaluateCount = assignedProjects.filter(p => 
@@ -101,28 +141,17 @@ export function TeacherDashboard({
     (!p.evaluation?.status && (p.metadata?.status === 'submitted' || p.metadata?.status === 'in_review'))
   ).length;
 
-  console.log('Stats calculation:', {
-    approved: approvedCount,
-    reprobated: reprobatedCount,
-    toEvaluate: toEvaluateCount,
-    projects: assignedProjects.map(p => ({
-      id: p._id,
-      title: p.title,
-      evaluationStatus: p.evaluation?.status,
-      metadataStatus: p.metadata?.status
-    }))
-  });
-
+  // Usar estadísticas del API si están disponibles, si no usar cálculo local
   const stats = [
   {
     label: 'Por Evaluar',
-    value: toEvaluateCount.toString(),
+    value: (teacherStats?.pending_evaluations ?? toEvaluateCount).toString(),
     icon: <Clock className="w-6 h-6 text-orange-600" />,
     bg: 'bg-orange-100'
   },
   {
     label: 'Aprobados',
-    value: approvedCount.toString(),
+    value: (teacherStats?.completed_evaluations ?? approvedCount).toString(),
     icon: <CheckSquare className="w-6 h-6 text-green-600" />,
     bg: 'bg-green-100'
   },
@@ -141,7 +170,10 @@ export function TeacherDashboard({
 
   // Filtrar proyectos
   const filteredProjects = useMemo(() => {
-    return assignedProjects.filter((project) => {
+    console.log('Filtrando proyectos con dateFilter:', dateFilter);
+    console.log('Total proyectos antes de filtrar:', assignedProjects.length);
+    
+    const filtered = assignedProjects.filter((project) => {
       const matchesSearch =
       searchQuery === '' ||
       project.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -149,29 +181,91 @@ export function TeacherDashboard({
       
       const matchesSection =
       selectedSection === 'all' || 
-      (selectedSection === 'submitted' && (project.metadata?.status === 'submitted' || project.metadata?.status === 'in_review')) ||
-      (selectedSection === 'approved' && project.metadata?.status === 'approved') ||
-      (selectedSection === 'rejected' && project.metadata?.status === 'rejected');
+      (selectedSection === 'submitted' && (project.metadata?.status === 'submitted')) ||
+      (selectedSection === 'in_review' && (project.metadata?.status === 'en_revision' || project.evaluation?.status === 'en_revision')) ||
+      (selectedSection === 'approved' && (project.metadata?.status === 'aprobado' || project.evaluation?.status === 'aprobado')) ||
+      (selectedSection === 'published' && (project.metadata?.status === 'published' || project.evaluation?.status === 'published'));
+
+    // Logs para depurar filtros
+    if (selectedSection === 'submitted') {
+      console.log('Filtrando pendientes - Proyecto:', {
+        title: project.title,
+        metadata_status: project.metadata?.status,
+        evaluation_status: project.evaluation?.status,
+        matchesSection
+      });
+    }
+    if (selectedSection === 'approved') {
+      console.log('Filtrando aprobados - Proyecto:', {
+        title: project.title,
+        metadata_status: project.metadata?.status,
+        evaluation_status: project.evaluation?.status,
+        matchesSection
+      });
+    }
+    if (selectedSection === 'in_review') {
+      console.log('Filtrando en revisión - Proyecto:', {
+        title: project.title,
+        metadata_status: project.metadata?.status,
+        evaluation_status: project.evaluation?.status,
+        matchesSection
+      });
+    }
+
+      // Filtro por fecha de asignación o creación
+      const dateToFilter = project.evaluation?.assigned_at ? 
+        new Date(project.evaluation.assigned_at) : 
+        new Date(project.created_at);
+      const now = new Date();
+      let matchesDate = true;
+
+      if (dateFilter !== 'all') {
+        const diffTime = now.getTime() - dateToFilter.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        switch (dateFilter) {
+          case 'today':
+            matchesDate = diffDays === 0;
+            break;
+          case 'week':
+            matchesDate = diffDays <= 7;
+            break;
+          case 'month':
+            matchesDate = diffDays <= 30;
+            break;
+        }
+      }
+
+      const result = matchesSearch && matchesSection && matchesDate;
+      if (!result && dateFilter !== 'all') {
+        console.log('Proyecto filtrado:', {
+          title: project.title,
+          dateToFilter: dateToFilter.toISOString(),
+          matchesDate,
+          dateFilter
+        });
+      }
       
-      return matchesSearch && matchesSection;
+      return result;
     });
-  }, [assignedProjects, searchQuery, selectedSection]);
+    
+    console.log('Total proyectos después de filtrar:', filtered.length);
+    return filtered;
+  }, [assignedProjects, searchQuery, selectedSection, dateFilter]);
 
   const handleEvaluateProject = (projectId: string) => {
     onNavigate('teacher-feedback', { projectId });
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 0) return 'Hoy';
-    if (diffDays === 1) return 'Hace 1 día';
-    if (diffDays < 7) return `Hace ${diffDays} días`;
-    if (diffDays < 30) return `Hace ${Math.floor(diffDays / 7)} semana(s)`;
-    return date.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+    return date.toLocaleString('es-ES', { 
+      day: '2-digit', 
+      month: 'short', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   const getStatusBadge = (status: string) => {
@@ -192,8 +286,9 @@ export function TeacherDashboard({
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedSection('all');
+    setDateFilter('all');
   };
-  const hasActiveFilters = searchQuery !== '' || selectedSection !== 'all';
+  const hasActiveFilters = searchQuery !== '' || selectedSection !== 'all' || dateFilter !== 'all';
   return (
     <MainLayout
       role="teacher"
@@ -203,40 +298,30 @@ export function TeacherDashboard({
       user={user}
       title="Panel de Evaluación">
 
-      {/* Estadísticas y Chat con Coordinador */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        {stats.map((stat) =>
-        <Card key={stat.label} className="border-none shadow-sm">
+      {/* Estadísticas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Estadísticas principales */}
+        {stats.map((stat) => (
+          <Card key={stat.label} className="border-none shadow-sm">
             <CardContent className="flex items-center p-6">
               <div className={`p-4 rounded-full ${stat.bg} mr-4`}>
-                {stat.icon}
+                {statsLoading ? (
+                  <div className="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  stat.icon
+                )}
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-500">
                   {stat.label}
                 </p>
                 <h3 className="text-2xl font-bold text-slate-900">
-                  {stat.value}
+                  {statsLoading ? '...' : stat.value}
                 </h3>
               </div>
             </CardContent>
           </Card>
-        )}
-        <Card className="border-none shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => setIsCoordinatorChatOpen(true)}>
-          <CardContent className="flex items-center p-6">
-            <div className="p-4 rounded-full bg-blue-100 mr-4">
-              <MessageCircle className="w-6 h-6 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-slate-500">
-                Chat con Coordinador
-              </p>
-              <h3 className="text-2xl font-bold text-slate-900">
-                Comunicación
-              </h3>
-            </div>
-          </CardContent>
-        </Card>
+        ))}
       </div>
 
       {/* Sección de Filtros */}
@@ -255,7 +340,7 @@ export function TeacherDashboard({
           }
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Filtro por nombre del proyecto */}
           <div>
             <Input
@@ -279,16 +364,49 @@ export function TeacherDashboard({
                 label: 'Pendientes'
               },
               {
-                value: 'approved',
-                label: 'Aprobados'
+                value: 'in_review',
+                label: 'En revisión'
               },
               {
-                value: 'rejected',
-                label: 'Requieren Corrección'
+                value: 'approved',
+                label: 'Aprobado'
+              },
+              {
+                value: 'published',
+                label: 'Publicados'
               }]
               }
               value={selectedSection}
               onChange={(e) => setSelectedSection(e.target.value)} />
+
+          </div>
+
+          {/* Filtro por fecha de asignación */}
+          <div>
+            <Select
+              options={[
+              {
+                value: 'all',
+                label: 'Cualquier fecha'
+              },
+              {
+                value: 'today',
+                label: 'Asignados hoy'
+              },
+              {
+                value: 'week',
+                label: 'Última semana'
+              },
+              {
+                value: 'month',
+                label: 'Último mes'
+              }]
+              }
+              value={dateFilter}
+              onChange={(e) => {
+                console.log('Cambiando dateFilter a:', e.target.value);
+                setDateFilter(e.target.value);
+              }} />
 
           </div>
 
@@ -324,9 +442,25 @@ export function TeacherDashboard({
           }
             {selectedSection !== 'all' &&
           <Badge variant="info" className="flex items-center gap-1">
-                {selectedSection}
+                {selectedSection === 'submitted' ? 'Pendientes' :
+                 selectedSection === 'in_review' ? 'En revisión' :
+                 selectedSection === 'approved' ? 'Aprobado' :
+                 selectedSection === 'published' ? 'Publicados' : selectedSection}
                 <button
               onClick={() => setSelectedSection('all')}
+              className="ml-1 hover:text-blue-800">
+
+                  <X className="w-3 h-3" />
+                </button>
+              </Badge>
+          }
+            {dateFilter !== 'all' &&
+          <Badge variant="info" className="flex items-center gap-1">
+                {dateFilter === 'today' ? 'Asignados hoy' : 
+                 dateFilter === 'week' ? 'Última semana' :
+                 dateFilter === 'month' ? 'Último mes' : dateFilter}
+                <button
+              onClick={() => setDateFilter('all')}
               className="ml-1 hover:text-blue-800">
 
                   <X className="w-3 h-3" />
@@ -370,7 +504,11 @@ export function TeacherDashboard({
                         {item.academic_info?.methodology || 'Sin metodología'}
                       </span>
                       <span>•</span>
-                      <span>{formatDate(item.created_at)}</span>
+                      <span>
+                        {item.evaluation?.assigned_at 
+                          ? `Asignado: ${formatDateTime(item.evaluation.assigned_at)}`
+                          : `Creado: ${formatDateTime(item.created_at)}`}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -404,14 +542,6 @@ export function TeacherDashboard({
         }
       </div>
 
-    </MainLayout>);
-
-  {/* Chat Panel para comunicación con el coordinador */}
-  <ChatPanel
-    userId={userData?._id || ''}
-    userName={userData?.name || ''}
-    userRole="teacher"
-    isOpen={isCoordinatorChatOpen}
-    onClose={() => setIsCoordinatorChatOpen(false)}
-  />
+    </MainLayout>
+  );
 }

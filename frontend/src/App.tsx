@@ -16,9 +16,11 @@ import { TeacherFeedbackPanel } from './pages/TeacherFeedbackPanel';
 import { StudentPDFViewer } from './components/StudentPDFViewer';
 import { SimpleTeacherChat } from './pages/SimpleTeacherChat';
 import { SimpleCoordinatorChat } from './pages/SimpleCoordinatorChat';
+import GroupAssignment from './pages/GroupAssignment';
 type Role = 'student' | 'teacher' | 'coordinator';
 export function App() {
   const [user, setUser] = useState<{
+    _id: string;
     id: string;
     name: string;
     email: string;
@@ -39,6 +41,7 @@ export function App() {
       try {
         const userData = JSON.parse(storedUser);
         setUser({
+          _id: userData._id || userData.id || 'user-' + Date.now(),
           id: userData.id || userData._id || 'user-' + Date.now(),
           name: userData.name,
           email: userData.email,
@@ -62,6 +65,7 @@ export function App() {
   const handleLogin = (role: Role, userData: any) => {
     // Usar datos reales del usuario autenticado desde la API
     setUser({
+      _id: userData._id || userData.id || 'user-' + Date.now(),
       id: userData.id || userData._id || 'user-' + Date.now(),
       name: userData.name,
       email: userData.email,
@@ -191,6 +195,12 @@ export function App() {
             onLogout={handleLogout}
             onNavigate={handleNavigate} />);
 
+      case 'group-assignment':
+        return (
+          <GroupAssignment
+            user={user}
+            onLogout={handleLogout}
+            onNavigate={handleNavigate} />);
 
       case 'coordinator-dashboard':
         return (

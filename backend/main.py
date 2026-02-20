@@ -42,7 +42,7 @@ from config.database import Database, DatabaseConfig
 
 
 
-from api import users, projects, careers, subjects, auth, feedback, docx_processor, pdf_evaluation, chat, storage, notifications, coordinator_projects, debug, debug_projects, simple_chat
+from api import users, projects, careers, subjects, auth, feedback, docx_processor, pdf_evaluation, chat, storage, notifications, coordinator_projects, debug, debug_projects, simple_chat, group_responsibles
 
 
 
@@ -257,6 +257,12 @@ app.include_router(debug_projects.router)
 
 
 app.include_router(simple_chat.router)
+
+
+
+app.include_router(group_responsibles.router)
+
+
 
 # Montar archivos estáticos DESPUÉS de los routers
 uploads_path = Path(__file__).parent / "uploads"

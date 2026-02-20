@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Send,
+  Paperclip,
   Download,
+  X,
   Circle,
-  MessageSquare
+  MessageSquare,
+  FileText
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { API_BASE_URL } from '../../services/api';
@@ -23,13 +26,20 @@ interface SimpleMessage {
   file_size?: number;
 }
 
+interface ChatFile {
+  file: File;
+  url?: string;
+  uploading?: boolean;
+  error?: string;
+}
+
 interface SimpleTeacherCoordinatorChatProps {
   currentUser: any;
   otherUser: any;
-  onNewMessage?: (unreadCount: number) => void;
+  onNewMessage?: (unreadCount: number) => void; // Callback para notificaciones
 }
 
-export function SimpleTeacherCoordinatorChat({
+export function SimpleTeacherCoordinatorChatWithNotifications({
   currentUser,
   otherUser,
   onNewMessage
@@ -40,10 +50,13 @@ export function SimpleTeacherCoordinatorChat({
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [wsConnected, setWsConnected] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<ChatFile[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
   const [unreadCount, setUnreadCount] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -62,11 +75,6 @@ export function SimpleTeacherCoordinatorChat({
       const data = await response.json();
       setMessages(data.messages || []);
       
-      // Hacer scroll hacia abajo después de cargar mensajes
-      setTimeout(() => {
-        scrollToBottom();
-      }, 100);
-      
       // Obtener room ID
       const roomResponse = await fetch(`${API_BASE_URL}/api/v1/simple-chat/get-room/${currentUser.id}/${otherUser.id}`);
       if (roomResponse.ok) {
@@ -74,7 +82,7 @@ export function SimpleTeacherCoordinatorChat({
         setRoomId(roomData.room_id);
       }
       
-      // Contar mensajes no leídos
+      // Contar mensajes no leídos (mensajes del otro usuario que no están leídos)
       const unreadMessages = (data.messages || []).filter((msg: SimpleMessage) => 
         msg.sender_id === otherUser.id && !msg.read
       );
@@ -82,6 +90,7 @@ export function SimpleTeacherCoordinatorChat({
       const count = unreadMessages.length;
       setUnreadCount(count);
       
+      // Notificar al componente padre sobre los mensajes no leídos
       if (onNewMessage) {
         onNewMessage(count);
       }
@@ -97,6 +106,7 @@ export function SimpleTeacherCoordinatorChat({
   const connectWebSocket = () => {
     try {
       const wsUrl = `${API_BASE_URL.replace('http://', 'ws://').replace('https://', 'wss://')}/api/v1/simple-chat/ws/${currentUser.id}`;
+      console.log('🔌 Conectando WebSocket:', wsUrl);
       
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
@@ -105,6 +115,7 @@ export function SimpleTeacherCoordinatorChat({
         console.log('✅ WebSocket conectado');
         setWsConnected(true);
         
+        // Enviar ping periódico
         const pingInterval = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
             ws.send('ping');
@@ -116,9 +127,14 @@ export function SimpleTeacherCoordinatorChat({
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          console.log('📨 Mensaje WebSocket recibido:', data);
 
           if (data.type === 'new_message') {
+            // Verificar si el mensaje es para esta conversación
             if (data.message.sender_id === otherUser.id || data.message.receiver_id === currentUser.id) {
+              console.log('✅ Mensaje relevante, recargando...');
+              
+              // Si es un mensaje nuevo del otro usuario, incrementar el contador
               if (data.message.sender_id === otherUser.id) {
                 setUnreadCount(prev => {
                   const newCount = prev + 1;
@@ -128,28 +144,42 @@ export function SimpleTeacherCoordinatorChat({
                   return newCount;
                 });
               }
+              
               loadMessages();
             }
+          } else if (data.type === 'user_online') {
+            if (data.user_id === otherUser.id) {
+              console.log('🟢 Usuario conectado:', otherUser.name);
+            }
+          } else if (data.type === 'user_offline') {
+            if (data.user_id === otherUser.id) {
+              console.log('🔴 Usuario desconectado:', otherUser.name);
+            }
+          } else if (data.type === 'pong') {
+            // Respuesta al ping
           }
         } catch (error) {
           console.error('❌ Error procesando mensaje WebSocket:', error);
         }
       };
 
-      ws.onerror = () => {
-        console.error('❌ Error WebSocket');
+      ws.onerror = (error) => {
+        console.error('❌ Error WebSocket:', error);
         setWsConnected(false);
       };
 
       ws.onclose = () => {
-        console.log('� WebSocket cerrado');
+        console.log('🔌 WebSocket cerrado');
         setWsConnected(false);
         
+        // Limpiar interval
         if ((ws as any).pingInterval) {
           clearInterval((ws as any).pingInterval);
         }
 
+        // Reconectar después de 3 segundos
         reconnectTimeoutRef.current = setTimeout(() => {
+          console.log('🔄 Reintentando conectar WebSocket...');
           connectWebSocket();
         }, 3000);
       };
@@ -169,6 +199,7 @@ export function SimpleTeacherCoordinatorChat({
         method: 'PUT'
       });
       
+      // Resetear contador de mensajes no leídos
       setUnreadCount(0);
       if (onNewMessage) {
         onNewMessage(0);
@@ -180,17 +211,49 @@ export function SimpleTeacherCoordinatorChat({
 
   // Enviar mensaje
   const sendMessage = async () => {
-    if (!message.trim()) return;
+    if (!message.trim() && attachedFiles.length === 0) return;
     
     try {
       setSending(true);
       
+      // Subir archivos primero si hay
+      const uploadedFiles = [];
+      for (const chatFile of attachedFiles) {
+        try {
+          const formData = new FormData();
+          formData.append('file', chatFile.file);
+          formData.append('chat_room', `${currentUser.id}-${otherUser.id}`);
+          
+          const uploadResponse = await fetch(`${API_BASE_URL}/api/v1/simple-chat/upload`, {
+            method: 'POST',
+            body: formData
+          });
+          
+          if (uploadResponse.ok) {
+            const uploadData = await uploadResponse.json();
+            uploadedFiles.push({
+              url: uploadData.file_url,
+              name: uploadData.file_name,
+              type: uploadData.file_type,
+              size: uploadData.file_size
+            });
+          }
+        } catch (error) {
+          console.error('Error subiendo archivo:', error);
+        }
+      }
+      
+      // Enviar mensaje
       const messageData = {
         sender_id: currentUser.id,
         receiver_id: otherUser.id,
         sender_name: currentUser.name,
         sender_role: currentUser.role,
-        message: message.trim()
+        message: message.trim(),
+        file_url: uploadedFiles[0]?.url,
+        file_name: uploadedFiles[0]?.name,
+        file_type: uploadedFiles[0]?.type,
+        file_size: uploadedFiles[0]?.size
       };
       
       const response = await fetch(`${API_BASE_URL}/api/v1/simple-chat/send-message`, {
@@ -203,7 +266,9 @@ export function SimpleTeacherCoordinatorChat({
       
       if (response.ok) {
         setMessage('');
+        setAttachedFiles([]);
         
+        // Resetear contador cuando envía un mensaje
         setUnreadCount(0);
         if (onNewMessage) {
           onNewMessage(0);
@@ -237,6 +302,25 @@ export function SimpleTeacherCoordinatorChat({
     } catch {
       return '';
     }
+  };
+
+  // Formatear tamaño de archivo
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  // Obtener icono según tipo de archivo
+  const getFileIcon = (fileType: string) => {
+    if (fileType === 'application/pdf') return '📄';
+    if (fileType.includes('word') || fileType.includes('document')) return '📝';
+    if (fileType.startsWith('text/')) return '📄';
+    if (fileType.includes('excel') || fileType.includes('spreadsheet')) return '📊';
+    if (fileType.includes('powerpoint') || fileType.includes('presentation')) return '📽️';
+    return '📎';
   };
 
   // Descargar archivo
@@ -288,6 +372,7 @@ export function SimpleTeacherCoordinatorChat({
 
   useEffect(() => {
     if (messages.length > 0) {
+      // Marcar como leídos después de 2 segundos
       const timeout = setTimeout(() => {
         markAsRead();
       }, 2000);
@@ -356,12 +441,10 @@ export function SimpleTeacherCoordinatorChat({
                       : 'bg-white border border-slate-200'
                   }`}
                 >
-                  {/* Message content */}
                   <p className={`text-sm ${msg.sender_id === currentUser.id ? 'text-white' : 'text-slate-900'}`}>
                     {msg.message}
                   </p>
                   
-                  {/* File attachment */}
                   {msg.file_url && (
                     <div className={`mt-2 p-2 rounded-lg ${
                       msg.sender_id === currentUser.id 
@@ -369,12 +452,17 @@ export function SimpleTeacherCoordinatorChat({
                         : 'bg-slate-50'
                     }`}>
                       <div className="flex items-center gap-2">
-                        <span className="text-lg">📄</span>
+                        <span className="text-lg">{getFileIcon(msg.file_type!)}</span>
                         <div className="flex-1 min-w-0">
                           <p className={`text-xs font-medium truncate ${
                             msg.sender_id === currentUser.id ? 'text-white' : 'text-slate-900'
                           }`}>
                             {msg.file_name}
+                          </p>
+                          <p className={`text-xs ${
+                            msg.sender_id === currentUser.id ? 'text-white/70' : 'text-slate-500'
+                          }`}>
+                            {formatFileSize(msg.file_size!)}
                           </p>
                         </div>
                         <button
@@ -392,7 +480,6 @@ export function SimpleTeacherCoordinatorChat({
                     </div>
                   )}
                   
-                  {/* Timestamp */}
                   <p className={`text-xs mt-1 ${
                     msg.sender_id === currentUser.id ? 'text-white/70' : 'text-slate-400'
                   }`}>
@@ -409,6 +496,23 @@ export function SimpleTeacherCoordinatorChat({
       {/* Input Area */}
       <div className="flex-shrink-0 border-t border-slate-200 bg-white p-4">
         <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+          <input
+            type="file"
+            ref={fileInputRef}
+            multiple
+            className="hidden"
+            accept="image/*,.pdf,.doc,.docx,.txt"
+          />
+          
+          <button
+            type="button"
+            className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
+            title="Adjuntar archivo"
+            disabled={sending}
+          >
+            <Paperclip className="w-5 h-5" />
+          </button>
+          
           <input
             type="text"
             value={message}

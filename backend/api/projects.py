@@ -60,6 +60,46 @@ from utils.file_storage import FileStorage
 
 
 
+async def check_student_group_responsible_permission(student_id: str, teacher_id: str = None) -> bool:
+    """
+    Verificar si un estudiante tiene permisos para crear proyectos.
+    Un estudiante puede crear proyectos si:
+    1. Es responsable de grupo de algún profesor, o
+    2. No hay responsables asignados aún (sistema abierto)
+    """
+    try:
+        group_responsibles_collection = Database.get_collection("group_responsibles")
+        
+        # Si se proporciona teacher_id, verificar específicamente para ese profesor
+        if teacher_id:
+            responsible = await group_responsibles_collection.find_one({
+                "student_id": ObjectId(student_id),
+                "teacher_id": ObjectId(teacher_id)
+            })
+            return responsible is not None
+        
+        # Si no se proporciona teacher_id, verificar si es responsable de algún profesor
+        responsible = await group_responsibles_collection.find_one({
+            "student_id": ObjectId(student_id)
+        })
+        
+        # Si es responsable de algún profesor, tiene permisos
+        if responsible:
+            return True
+        
+        # Si no hay responsables en el sistema, permitir temporalmente
+        total_responsibles = await group_responsibles_collection.count_documents({})
+        if total_responsibles == 0:
+            return True
+        
+        # Si hay responsables pero este estudiante no es uno de ellos, denegar
+        return False
+        
+    except Exception as e:
+        print(f"Error verificando permisos de estudiante: {e}")
+        # En caso de error, permitir por seguridad (para no bloquear todo el sistema)
+        return True
+
 
 
 router = APIRouter(prefix="/api/v1/projects", tags=["projects"])
@@ -1352,14 +1392,22 @@ async def upload_project(
 
 
     if student.get("role") != "student":
-
-
-
         raise HTTPException(status_code=403, detail="Solo los estudiantes pueden subir proyectos")
-
-
-
     
+    # Verificar si el estudiante tiene permisos para crear proyectos (sistema de responsables de grupo)
+    has_permission = await check_student_group_responsible_permission(student_id)
+    
+    if not has_permission:
+        # Obtener información del profesor asignado para mostrar mensaje más específico
+        assigned_teacher = student.get("assigned_teacher", {})
+        teacher_name = assigned_teacher.get("teacher_name", "el profesor")
+        
+        raise HTTPException(
+            status_code=403, 
+            detail=f"No tienes permisos para crear proyectos. Solo los estudiantes asignados como responsables de grupo pueden crear proyectos. Contacta a {teacher_name} para ser asignado como responsable."
+        )
+    
+    print(f"✅ Estudiante {student.get('first_name')} {student.get('last_name')} tiene permisos para crear proyecto")
 
 
 
@@ -1745,6 +1793,40 @@ async def upload_project(
 
 
 
+
+
+@router.get("/student/{student_id}/can-create-project")
+async def check_student_can_create_project(student_id: str):
+    """
+    Verificar si un estudiante tiene permisos para crear proyectos
+    """
+    try:
+        # Validar ID
+        ObjectId(student_id)
+    except:
+        raise HTTPException(status_code=400, detail="ID de estudiante inválido")
+    
+    # Verificar permisos
+    has_permission = await check_student_group_responsible_permission(student_id)
+    
+    # Obtener información del estudiante para mensaje personalizado
+    users_collection = Database.get_collection(DatabaseConfig.USERS_COLLECTION)
+    student = await users_collection.find_one({"_id": ObjectId(student_id)})
+    
+    if not student:
+        raise HTTPException(status_code=404, detail="Estudiante no encontrado")
+    
+    if student.get("role") != "student":
+        raise HTTPException(status_code=403, detail="El usuario no es un estudiante")
+    
+    return {
+        "can_create_project": has_permission,
+        "student_name": student.get("name", ""),
+        "message": (
+            "Tienes permisos para crear proyectos." if has_permission 
+            else "No tienes permisos para crear proyectos. Solo los responsables de grupo pueden crear proyectos."
+        )
+    }
 
 
 @router.get("/download/{file_id}")

@@ -173,16 +173,16 @@ export function PublicLibrary({
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header Público */}
-      <header className="bg-primary text-white sticky top-0 z-50 shadow-lg">
+      <header className="bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 text-white sticky top-0 z-50 shadow-blue-900/50 backdrop-blur-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <div className="bg-accent rounded-lg p-1.5">
-                <GraduationCap className="w-7 h-7 text-primary-dark" />
+              <div className="bg-white/20 backdrop-blur-md rounded-xl p-2 border border-white/10">
+                <GraduationCap className="w-6 h-6 text-white" />
               </div>
               <div>
                 <h1 className="font-bold text-lg">UNEXCA</h1>
-                <p className="text-xs text-slate-300 hidden sm:block">
+                <p className="text-xs text-blue-100 hidden sm:block">
                   Biblioteca Digital
                 </p>
               </div>
@@ -190,27 +190,25 @@ export function PublicLibrary({
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center gap-4">
-              <span className="text-sm text-slate-200">
+              <span className="text-sm text-blue-100 font-medium">
                 ¿Eres parte de UNEXCA?
               </span>
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={onLogin}
-                leftIcon={<LogIn className="w-4 h-4" />}>
-
+                leftIcon={<LogIn className="w-4 h-4" />}
+                className="bg-white/20 hover:bg-white/30 text-white border-white/20 backdrop-blur-md">
                 Iniciar Sesión
               </Button>
             </div>
 
             {/* Mobile Menu Button */}
             <button
-              className="md:hidden p-2 hover:bg-primary-light rounded-lg"
+              className="md:hidden p-2 hover:bg-white/10 rounded-lg transition-colors duration-200"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-
               {mobileMenuOpen ?
               <X className="w-6 h-6" /> :
-
               <Menu className="w-6 h-6" />
               }
             </button>
@@ -218,16 +216,15 @@ export function PublicLibrary({
 
           {/* Mobile Menu */}
           {mobileMenuOpen &&
-          <div className="md:hidden py-4 border-t border-primary-light">
+          <div className="md:hidden py-4 border-t border-white/10">
               <Button
               variant="secondary"
-              className="w-full"
+              className="w-full bg-white/20 hover:bg-white/30 text-white border-white/20 backdrop-blur-md"
               onClick={() => {
                 setMobileMenuOpen(false);
                 onLogin();
               }}
               leftIcon={<LogIn className="w-4 h-4" />}>
-
                 Iniciar Sesión
               </Button>
             </div>
@@ -236,24 +233,28 @@ export function PublicLibrary({
       </header>
 
       {/* Hero Section */}
-      <div className="bg-gradient-to-br from-primary to-primary-dark text-white py-12 sm:py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+      <div className="bg-gradient-to-br from-blue-700 via-indigo-800 to-blue-900 text-white py-12 sm:py-16 relative overflow-hidden">
+        {/* Decorative elements */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full transform translate-x-48 -translate-y-48" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/3 rounded-full transform -translate-x-32 translate-y-32" />
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+          <h2 className="text-3xl sm:text-4xl font-bold mb-4 bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
             Biblioteca Digital UNEXCA
           </h2>
-          <p className="text-lg text-slate-200 max-w-2xl mx-auto mb-8">
+          <p className="text-lg text-blue-100 max-w-2xl mx-auto mb-8 leading-relaxed">
             Explora proyectos académicos de excelencia. Acceso libre a trabajos
             de grado, investigaciones y proyectos de nuestra comunidad
             universitaria.
           </p>
           <div className="flex flex-wrap justify-center gap-3 text-sm">
-            <span className="px-4 py-2 bg-white/10 rounded-full backdrop-blur-sm border border-white/20">
+            <span className="px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
               📚 Repositorio Académico
             </span>
-            <span className="px-4 py-2 bg-white/10 rounded-full backdrop-blur-sm border border-white/20">
+            <span className="px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
               🔬 Investigaciones
             </span>
-            <span className="px-4 py-2 bg-white/10 rounded-full backdrop-blur-sm border border-white/20">
+            <span className="px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
               📄 Trabajos de Grado
             </span>
           </div>
@@ -277,18 +278,54 @@ export function PublicLibrary({
       </main>
 
       {/* Footer */}
-      <footer className="bg-slate-800 text-slate-300 py-8 mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <GraduationCap className="w-6 h-6 text-accent" />
-            <span className="font-bold text-white">UNEXCA</span>
+      <footer className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-300 py-12 mt-16 relative overflow-hidden">
+        {/* Decorative elements */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full transform translate-x-32 -translate-y-32" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-indigo-500/5 rounded-full transform -translate-x-24 translate-y-24" />
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+            {/* Columna 1 - Logo y descripción */}
+            <div className="text-center md:text-left">
+              <div className="flex items-center justify-center md:justify-start gap-3 mb-4">
+                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl p-3">
+                  <GraduationCap className="w-6 h-6 text-white" />
+                </div>
+                <span className="font-bold text-xl text-white">UNEXCA</span>
+              </div>
+              <p className="text-sm text-slate-400 leading-relaxed max-w-md mx-auto md:mx-0">
+                Universidad Nacional Experimental de la Gran Caracas
+                Biblioteca Digital de Proyectos Académicos
+              </p>
+            </div>
+            
+            {/* Columna 2 - Contacto */}
+            <div className="text-center md:text-right">
+              <h3 className="font-semibold text-white mb-4">Contacto</h3>
+              <div className="space-y-2 text-sm text-slate-400">
+                <p>biblioteca@unexca.edu.ve</p>
+                <p>+58 212-123-4567</p>
+                <p>Caracas, Venezuela</p>
+              </div>
+            </div>
           </div>
-          <p className="text-sm">
-            Universidad Nacional Experimental de la Gran Caracas
-          </p>
-          <p className="text-xs mt-2 text-slate-400">
-            © 2024 Biblioteca Digital. Todos los derechos reservados.
-          </p>
+          
+          {/* Divider */}
+          <div className="border-t border-slate-700 pt-8">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+              <p className="text-sm text-slate-400">
+                © 2024 Biblioteca Digital UNEXCA. Todos los derechos reservados.
+              </p>
+              <div className="flex gap-4">
+                <a href="#" className="text-slate-400 hover:text-blue-400 transition-colors duration-200">
+                  Política de Privacidad
+                </a>
+                <a href="#" className="text-slate-400 hover:text-blue-400 transition-colors duration-200">
+                  Términos de Uso
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
       </footer>
     </div>);
@@ -380,24 +417,29 @@ function LibraryContent({
       {/* Estado de carga */}
       {loading && (
         <div className="flex justify-center items-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <span className="ml-2 text-slate-600">Cargando proyectos...</span>
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl mb-4">
+              <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+            </div>
+            <p className="text-slate-600 font-medium">Cargando proyectos...</p>
+          </div>
         </div>
       )}
 
       {/* Estado de error */}
       {error && (
         <div className="text-center py-20">
-          <div className="bg-red-50 p-4 rounded-full inline-block mb-4">
-            <X className="w-8 h-8 text-red-500" />
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-red-50 to-red-100 rounded-3xl mb-6">
+            <X className="w-10 h-10 text-red-500" />
           </div>
-          <h3 className="text-lg font-medium text-slate-900 mb-2">
+          <h3 className="text-xl font-semibold text-slate-900 mb-3">
             Error al cargar proyectos
           </h3>
-          <p className="text-slate-500 mb-4">{error}</p>
+          <p className="text-slate-600 mb-6 max-w-md mx-auto">{error}</p>
           <Button 
             onClick={() => window.location.reload()}
             variant="outline"
+            className="bg-white hover:bg-slate-50 border-slate-200 hover:border-slate-300 shadow-sm hover:shadow-md transition-all duration-200"
           >
             Reintentar
           </Button>
@@ -420,14 +462,14 @@ function LibraryContent({
 
       {!loading && !error && filteredProjects.length === 0 &&
       <div className="text-center py-20">
-          <div className="bg-slate-100 p-4 rounded-full inline-block mb-4">
-            <Search className="w-8 h-8 text-slate-400" />
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-slate-100 to-slate-200 rounded-3xl mb-6">
+            <Search className="w-10 h-10 text-slate-400" />
           </div>
-          <h3 className="text-lg font-medium text-slate-900">
+          <h3 className="text-xl font-semibold text-slate-900 mb-3">
             No se encontraron proyectos
           </h3>
-          <p className="text-slate-500">
-            Intenta ajustar tu búsqueda o los filtros.
+          <p className="text-slate-600 mb-6 max-w-md mx-auto">
+            Intenta ajustar tu búsqueda o los filtros para encontrar los proyectos que buscas.
           </p>
         </div>
       }

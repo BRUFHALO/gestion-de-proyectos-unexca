@@ -10,7 +10,8 @@ import {
   UserCheck,
   GraduationCap,
   Menu,
-  LogOut
+  LogOut,
+  UserPlus
 } from 'lucide-react';
 import { Avatar } from '../ui/Avatar';
 interface SidebarProps {
@@ -55,6 +56,11 @@ export function Sidebar({
         id: 'teacher-dashboard',
         label: 'Panel de Evaluación',
         icon: <FileCheck className="w-5 h-5" />
+      },
+      {
+        id: 'group-assignment',
+        label: 'Asignación de Grupos',
+        icon: <UserPlus className="w-5 h-5" />
       },
       {
         id: 'simple-teacher-chat',

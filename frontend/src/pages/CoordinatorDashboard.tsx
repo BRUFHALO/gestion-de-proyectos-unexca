@@ -7,15 +7,14 @@ import {
   Filter,
   MoreVertical,
   X
-} from
-'lucide-react';
+} from 'lucide-react';
 import { MainLayout } from '../components/layout/MainLayout';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
-import { SimpleTeacherCoordinatorChat } from '../components/chat/SimpleTeacherCoordinatorChat';
+import { SimpleTeacherCoordinatorChatWithNotifications } from '../components/chat/SimpleTeacherCoordinatorChatWithNotifications';
 
 const API_BASE_URL = 'http://localhost:8000';
 interface CoordinatorDashboardProps {
@@ -76,6 +75,7 @@ export function CoordinatorDashboard({
   const [loadingStats, setLoadingStats] = useState(false);
   const [sidebarChatTeacher, setSidebarChatTeacher] = useState<Teacher | null>(null);
   const [showSidebarChat, setShowSidebarChat] = useState(false);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
   // Cargar profesores// Función para cargar profesores con estadísticas reales
   const loadTeachers = async () => {
@@ -175,16 +175,28 @@ export function CoordinatorDashboard({
     reloadProjectData();
   }, []);
 
-  // Logging para depurar cambios en el estado
   useEffect(() => {
     console.log('Estado actual - approvedProjects:', approvedProjects);
     console.log('Estado actual - publishedProjects:', publishedProjects);
   }, [approvedProjects, publishedProjects]);
 
-  // Función para abrir chat en el panel lateral
+  // Función para manejar notificaciones de nuevos mensajes
+  const handleNewMessage = (teacherId: string, unreadCount: number) => {
+    setUnreadCounts(prev => ({
+      ...prev,
+      [teacherId]: unreadCount
+    }));
+  };
+
+  // Función para abrir chat lateral
   const openSidebarChat = (teacher: Teacher) => {
     setSidebarChatTeacher(teacher);
     setShowSidebarChat(true);
+    // Resetear contador cuando se abre el chat
+    setUnreadCounts(prev => ({
+      ...prev,
+      [teacher.id]: 0
+    }));
   };
 
   const getLoadColor = (load: number, capacity: number) => {
@@ -358,9 +370,14 @@ export function CoordinatorDashboard({
                           size="sm"
                           onClick={() => openSidebarChat(teacher)}
                           leftIcon={<MessageSquare className="w-4 h-4" />}
-                          className="text-primary border-primary/30 hover:bg-primary/5">
+                          className="text-primary border-primary/30 hover:bg-primary/5 relative">
 
                             Chat Rápido
+                            {unreadCounts[teacher.id] > 0 && (
+                              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                                {unreadCounts[teacher.id] > 9 ? '9+' : unreadCounts[teacher.id]}
+                              </span>
+                            )}
                           </Button>
                           <button className="text-slate-400 hover:text-slate-600 p-1">
                             <MoreVertical className="w-4 h-4" />
@@ -588,22 +605,18 @@ export function CoordinatorDashboard({
                   <X className="w-4 h-4" />
                 </Button>
               </div>
-              <SimpleTeacherCoordinatorChat
+              <SimpleTeacherCoordinatorChatWithNotifications
                 currentUser={{
                   id: user.id,
                   name: user.name,
-                  role: user.role,
-                  email: user.email
+                  role: user.role
                 }}
                 otherUser={{
                   id: sidebarChatTeacher.id,
                   name: sidebarChatTeacher.name,
-                  role: 'teacher',
-                  email: sidebarChatTeacher.email
+                  role: 'teacher'
                 }}
-                showHeader={false}
-                height="h-[500px]"
-                className="border-0"
+                onNewMessage={(unreadCount) => handleNewMessage(sidebarChatTeacher.id, unreadCount)}
               />
             </div>
           ) : (
